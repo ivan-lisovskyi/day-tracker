@@ -24,16 +24,22 @@ export function render(root) {
     const stats = buildWeekStats(data, monday, todayKey);
 
     root.replaceChildren(
-      navCard(stats, weekOffset, (delta) => { weekOffset += delta; exportState = null; draw(); }),
+      navCard(stats, weekOffset, (delta) => { weekOffset += delta; exportState = null; redraw(); }),
       summaryCard(stats),
-      exportCard(stats, exportState, async () => { exportState = await copyWeek(stats); draw(); }),
+      exportCard(stats, exportState, async () => { exportState = await copyWeek(stats); redraw(); }),
       daysCard(stats),
       habitsCard(stats),
     );
   };
 
+  let active = true; // false once the user leaves this tab (the root element is reused)
+  const redraw = () => { if (active) draw(); };
   draw();
-  return store.subscribe(draw);
+  const unsubscribe = store.subscribe(redraw);
+  return () => {
+    active = false;
+    unsubscribe();
+  };
 }
 
 // ---------- navigation ----------

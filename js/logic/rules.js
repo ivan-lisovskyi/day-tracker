@@ -3,16 +3,47 @@
  * the "late night → suggest minimum mode" hint and per-habit status.
  * Pure functions over (dayKey, days, settings).
  */
-import { addDays, stampToDayMinutes, toDayMinutes, toMinutes } from './time.js';
+import { addDays, formatMinutes, localDateKey, stampToDayMinutes, toDayMinutes, toMinutes } from './time.js';
 import { isWorkoutDay } from './schedule.js';
 
 export const DAY_MODES = ['normal', 'minimum', 'sick'];
 
-/** Habits evaluated even in "sick" mode. */
-const SLEEP_HABITS = new Set(['wake', 'bed', 'phone-away']);
-
 /** How far back a missed workout can be traced (guards against endless recursion). */
 const MAX_CARRY_DEPTH = 7;
+
+/** A bedtime earlier than this is "after midnight", i.e. it belongs to the previous day. */
+const NOON = 12 * 60;
+
+/** Habits evaluated even in "sick" mode: wake, bed and every task of a sleep block. */
+function sleepHabitIds(settings) {
+  const ids = new Set(['wake', 'bed']);
+  for (const block of settings.blocks) {
+    if (block.kind === 'sleep') for (const task of block.tasks ?? []) ids.add(task.id);
+  }
+  return ids;
+}
+
+// ---------- recording wake / bed ----------
+
+/** A wake time typed for a day is on that day's calendar date ("04:50" stays on the 24th). */
+export function wakeStampFor(dayKey, hhmm) {
+  return `${dayKey}T${formatMinutes(toMinutes(hhmm))}`;
+}
+
+/**
+ * A bedtime typed for a day: anything before noon happened after midnight,
+ * so it goes on the next calendar date (even 05:30, past the 05:00 day boundary).
+ */
+export function bedStampFor(dayKey, hhmm) {
+  const minutes = toMinutes(hhmm);
+  return `${minutes < NOON ? addDays(dayKey, 1) : dayKey}T${formatMinutes(minutes)}`;
+}
+
+/** Which day a "going to bed now" tap belongs to: before noon it is still last night. */
+export function bedDayKeyFor(date) {
+  const key = localDateKey(date);
+  return date.getHours() * 60 + date.getMinutes() < NOON ? addDays(key, -1) : key;
+}
 
 // ---------- wake / bed ----------
 
@@ -119,7 +150,7 @@ export function habitStatus(habitId, dayKey, days, settings) {
   if (habitId === 'stretch' && isWorkoutPlanned(dayKey, days, settings)) return null;
   if (!day) return false;
 
-  const isSleep = SLEEP_HABITS.has(habitId);
+  const isSleep = sleepHabitIds(settings).has(habitId);
   if (day.mode === 'sick' && !isSleep) return null;
 
   let done;
@@ -132,6 +163,5 @@ export function habitStatus(habitId, dayKey, days, settings) {
 }
 
 function addMinutesLabel(hhmm, add) {
-  const total = toMinutes(hhmm) + add;
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+  return formatMinutes(toMinutes(hhmm) + add);
 }

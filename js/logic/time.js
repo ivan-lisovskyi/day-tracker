@@ -111,16 +111,6 @@ export function nowDayMinutes(date, boundary = '05:00') {
   return minutes < toMinutes(boundary) ? minutes + MINUTES_PER_DAY : minutes;
 }
 
-/**
- * "HH:MM" entered for a tracked day → stamp on the right calendar date
- * (a bedtime of 01:20 for Nov 23 is stored as "2026-11-24T01:20").
- */
-export function stampFromDayTime(dayKey, hhmm, boundary = '05:00') {
-  const afterMidnight = toMinutes(hhmm) < toMinutes(boundary);
-  const [h, m] = hhmm.split(':');
-  return `${afterMidnight ? addDays(dayKey, 1) : dayKey}T${pad2(Number(h))}:${m}`;
-}
-
 /** "2026-11-24T01:20" → "01:20" */
 export function stampTime(stamp) {
   return formatMinutes(parseStamp(stamp).minutes);

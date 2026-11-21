@@ -24,3 +24,44 @@ export function h(tag, props = {}, ...children) {
 
   return el;
 }
+
+/**
+ * Redraws a screen without pulling the keyboard away.
+ * A redraw requested while the user is in a text/time/number field or a select is postponed
+ * until focus leaves the form fields (moving from one field to the next keeps it postponed).
+ * Checkboxes and buttons redraw at once.
+ */
+export function createRenderer(root, draw) {
+  let pending = false;
+
+  const isEditing = () => {
+    const el = document.activeElement;
+    return Boolean(el && root.contains(el) && el.matches('input:not([type="checkbox"]), textarea, select'));
+  };
+
+  const drawIfIdle = () => {
+    if (pending && !isEditing()) {
+      pending = false;
+      draw();
+    }
+  };
+
+  // Decided on the next tick: a field's "change" fires while focus is in between fields
+  // (activeElement is <body>), and only a moment later does it land on the next field.
+  let scheduled = false;
+  const request = () => {
+    pending = true;
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(() => {
+      scheduled = false;
+      drawIfIdle();
+    }, 0);
+  };
+
+  // Leaving the last field draws whatever was postponed.
+  const onFocusOut = () => setTimeout(drawIfIdle, 0);
+
+  root.addEventListener('focusout', onFocusOut);
+  return { request, dispose: () => root.removeEventListener('focusout', onFocusOut) };
+}

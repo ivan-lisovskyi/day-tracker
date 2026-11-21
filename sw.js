@@ -9,7 +9,7 @@
  * Releasing a change: bump VERSION here and "version" in package.json (a test checks they match).
  * When adding a file to the app, add it to ASSETS (a test checks nothing is missing).
  */
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 const CACHE_NAME = `day-tracker-${VERSION}`;
 
 const ASSETS = [
@@ -35,6 +35,7 @@ const ASSETS = [
   './js/state/store.js',
   './js/ui/backup.js',
   './js/ui/dom.js',
+  './js/ui/errorScreen.js',
   './js/ui/format.js',
   './js/ui/settings.js',
   './js/ui/today.js',

@@ -1067,3 +1067,10 @@ select.input {
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
   font-weight: 600;
 }
+
+.time-row__done {
+  justify-self: center;
+  color: var(--success);
+  font-size: 22px;
+  font-weight: 700;
+}

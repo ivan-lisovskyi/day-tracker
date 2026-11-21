@@ -6,6 +6,7 @@
 import * as today from './ui/today.js';
 import * as week from './ui/week.js';
 import * as settings from './ui/settings.js';
+import { renderErrorScreen } from './ui/errorScreen.js';
 import { registerServiceWorker, requestPersistentStorage } from './pwa.js';
 
 const routes = { today, week, settings };
@@ -33,10 +34,22 @@ function render() {
   }
 
   cleanupScreen?.();
+  cleanupScreen = null;
   screenEl.replaceChildren();
-  cleanupScreen = screen.render(screenEl) ?? null;
+  try {
+    cleanupScreen = screen.render(screenEl) ?? null;
+  } catch (err) {
+    renderErrorScreen(screenEl, err);
+  }
   window.scrollTo(0, 0);
 }
+
+// An error in a later redraw (after a tap) also lands on the error screen instead of a frozen page.
+window.addEventListener('error', (event) => {
+  cleanupScreen?.();
+  cleanupScreen = null;
+  renderErrorScreen(screenEl, event.error ?? event.message);
+});
 
 window.addEventListener('hashchange', render);
 render();

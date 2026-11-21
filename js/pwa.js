@@ -24,7 +24,13 @@ export async function registerServiceWorker() {
     return;
   }
 
-  const offerUpdate = (worker) => showUpdateBanner(() => worker.postMessage({ type: 'SKIP_WAITING' }));
+  // Set when the user taps "Перезапустить": that tap is the signal to reload, even in the very
+  // session where the app was first installed (when there was no previous controller).
+  let updateRequested = false;
+  const offerUpdate = (worker) => showUpdateBanner(() => {
+    updateRequested = true;
+    worker.postMessage({ type: 'SKIP_WAITING' });
+  });
 
   // A new version was downloaded earlier and is waiting.
   if (registration.waiting && hadController) offerUpdate(registration.waiting);
@@ -37,10 +43,11 @@ export async function registerServiceWorker() {
     });
   });
 
-  // The new version took over → reload once to run its code. Not on the very first install.
+  // The new version took over → reload once to run its code. Not on the very first install,
+  // unless the user asked for the update.
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController || reloading) return;
+    if (reloading || !(hadController || updateRequested)) return;
     reloading = true;
     window.location.reload();
   });

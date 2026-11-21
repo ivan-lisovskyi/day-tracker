@@ -2,7 +2,7 @@
  * "Настройки" screen: goals and rules, workouts, routine blocks, backup.
  * Every field saves on "change" (when the user finishes editing), so typing is never interrupted.
  */
-import { h } from './dom.js';
+import { createRenderer, h } from './dom.js';
 import { formatDayLabel, formatRange } from './format.js';
 import { restoreBackup, saveBackup } from './backup.js';
 import { isStoragePersistent } from '../pwa.js';
@@ -50,15 +50,17 @@ export function render(root) {
   };
 
   let active = true; // false once the user leaves this tab (the root element is reused)
+  const renderer = createRenderer(root, draw);
   draw();
   isStoragePersistent().then((value) => {
     persistent = value;
-    if (active) draw();
+    if (active) renderer.request();
   });
-  const unsubscribe = store.subscribe(draw);
+  const unsubscribe = store.subscribe(renderer.request);
   return () => {
     active = false;
     unsubscribe();
+    renderer.dispose();
   };
 }
 

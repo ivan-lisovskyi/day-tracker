@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  habitStatus, hasPendingWorkout, isBedOnTime, isDayCounted, isWorkoutPlanned,
-  minimumStatus, shouldSuggestMinimum,
+  bedDayKeyFor, bedStampFor, habitStatus, hasPendingWorkout, isBedOnTime, isDayCounted, isWorkoutPlanned,
+  minimumStatus, shouldSuggestMinimum, wakeStampFor,
 } from '../js/logic/rules.js';
 import { createDefaultSettings } from '../js/state/defaults.js';
 
@@ -103,4 +103,30 @@ test('workout and stretching are only evaluated on their own days', () => {
   assert.equal(habitStatus('workout', MONDAY, days, settings), false);
   // Monday's missed workout carries into Tuesday, where it was done.
   assert.equal(habitStatus('workout', TUESDAY, days, settings), true);
+});
+
+test('a typed bedtime before noon belongs to the night after the day', () => {
+  assert.equal(bedStampFor(TUESDAY, '23:40'), '2026-11-24T23:40');
+  assert.equal(bedStampFor(TUESDAY, '01:20'), '2026-11-25T01:20');
+  assert.equal(bedStampFor(TUESDAY, '05:30'), '2026-11-25T05:30'); // after the 05:00 boundary, still last night
+  const late = { [TUESDAY]: { bedAt: bedStampFor(TUESDAY, '05:30') } };
+  assert.equal(isBedOnTime(late[TUESDAY], TUESDAY, settings), false);
+  assert.equal(shouldSuggestMinimum('2026-11-25', late, settings), true);
+});
+
+test('"going to bed now" before noon is recorded for the previous day', () => {
+  assert.equal(bedDayKeyFor(new Date(2026, 10, 25, 5, 30)), TUESDAY);
+  assert.equal(bedDayKeyFor(new Date(2026, 10, 25, 1, 0)), TUESDAY);
+  assert.equal(bedDayKeyFor(new Date(2026, 10, 24, 23, 50)), TUESDAY);
+});
+
+test('a typed wake time stays on the calendar date of the day', () => {
+  assert.equal(wakeStampFor(TUESDAY, '04:50'), '2026-11-24T04:50');
+  assert.equal(wakeStampFor(TUESDAY, '9:05'), '2026-11-24T09:05');
+});
+
+test('tasks of sleep blocks count on sick days', () => {
+  const days = { [TUESDAY]: { mode: 'sick', done: { 'no-phone': true } } };
+  assert.equal(habitStatus('no-phone', TUESDAY, days, settings), true);
+  assert.equal(habitStatus('code', TUESDAY, days, settings), null);
 });

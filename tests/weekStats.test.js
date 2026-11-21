@@ -100,7 +100,7 @@ test('text export contains the summary, every day and the note', () => {
     'Сб 21.11 (сегодня) — минимум ✗',
     '  пока не отмечено: Гиря 12 кг;',
     'Вс 22.11 — ещё не наступил',
-    '- Подъём до 9:30: 3/6, серия 2',
+    '- Подъём до 09:30: 3/6, серия 2',
   ]) {
     assert.ok(text.includes(expected), `missing "${expected}" in:\n${text}`);
   }

@@ -2,18 +2,20 @@
  * "Сегодня" screen: mode of the day, minimum, sleep, job applications,
  * driving lesson, the timeline with checkboxes and a note.
  *
- * The whole screen re-renders on every data change (it is small); the current
- * block highlight is refreshed every 30 s without a re-render.
+ * The whole screen re-renders on every data change (it is small), but never while the user is
+ * typing in a field (see createRenderer); the current block highlight is refreshed every 30 s.
  */
-import { h } from './dom.js';
+import { createRenderer, h } from './dom.js';
 import { formatDayLabel, formatDuration, formatRange, plural } from './format.js';
 import * as store from '../state/store.js';
 import { createDay } from '../state/schema.js';
 import {
-  dayKeyFor, nowDayMinutes, stampFromDayTime, stampTime, toMinutes, toStamp, weekKeys, weekStart,
+  dayKeyFor, formatMinutes, localDateKey, nowDayMinutes, stampTime, toDayMinutes, toMinutes, toStamp, weekKeys, weekStart,
 } from '../logic/time.js';
 import { buildDaySchedule, findCurrentBlock } from '../logic/schedule.js';
-import { hasPendingWorkout, isBedOnTime, minimumStatus, shouldSuggestMinimum } from '../logic/rules.js';
+import {
+  bedDayKeyFor, bedStampFor, hasPendingWorkout, isBedOnTime, minimumStatus, shouldSuggestMinimum, wakeStampFor,
+} from '../logic/rules.js';
 import { minimumStreak } from '../logic/streaks.js';
 import { shouldRemindBackup } from '../logic/backup.js';
 import { saveBackup } from './backup.js';
@@ -48,17 +50,19 @@ export function render(root) {
     else highlightCurrent(root, schedule, nowDayMinutes(now, settings.dayBoundary));
   };
 
+  const renderer = createRenderer(root, draw);
   const onVisible = () => {
-    if (document.visibilityState === 'visible') draw(); // back from background: time has passed
+    if (document.visibilityState === 'visible') renderer.request(); // back from background: time has passed
   };
 
   draw();
-  const unsubscribe = store.subscribe(draw);
+  const unsubscribe = store.subscribe(renderer.request);
   const timer = setInterval(tick, REFRESH_MS);
   document.addEventListener('visibilitychange', onVisible);
 
   return () => {
     unsubscribe();
+    renderer.dispose();
     clearInterval(timer);
     document.removeEventListener('visibilitychange', onVisible);
   };
@@ -116,7 +120,7 @@ function backupBanner(data, dayKey) {
 function lateNightBanner({ settings, days, dayKey, edit }) {
   if (!shouldSuggestMinimum(dayKey, days, settings)) return null;
   return h('div', { class: 'banner banner--warning' },
-    h('p', {}, 'Вчера лёг позже 02:00. Включить сегодня режим «минимум»?'),
+    h('p', {}, `Вчера лёг позже ${settings.lateBedThreshold}. Включить сегодня режим «минимум»?`),
     h('div', { class: 'banner__actions' },
       h('button', { class: 'btn btn--primary', onclick: () => edit((d) => { d.mode = 'minimum'; }) }, 'Включить'),
       h('button', { class: 'btn', onclick: () => edit((d) => { d.minimumSuggestionDismissed = true; }) }, 'Нет, обычный'),
@@ -182,11 +186,16 @@ function minimumCard({ settings, days, dayKey, day, mode, edit }) {
 // ---------- sleep ----------
 
 function sleepCard({ settings, dayKey, day, edit }) {
-  const boundary = settings.dayBoundary;
-  const setStamp = (field, value) => edit((d) => {
-    if (value) d[field] = stampFromDayTime(dayKey, value, boundary);
+  const setTime = (field, stampFor, value) => edit((d) => {
+    if (value) d[field] = stampFor(dayKey, value);
     else delete d[field];
   });
+  // "Now" buttons work out the day at the moment of the tap: going to bed at 01:30 (or even 05:30)
+  // still belongs to last night, and waking up always belongs to today's date.
+  const recordNow = (field, dayKeyOf) => {
+    const now = new Date();
+    store.updateDay(dayKeyOf(now), (d) => { d[field] = toStamp(now); });
+  };
   const lateBed = Boolean(day.bedAt) && !isBedOnTime(day, dayKey, settings);
 
   return h('section', { class: 'card' },
@@ -195,20 +204,24 @@ function sleepCard({ settings, dayKey, day, edit }) {
       label: 'Подъём',
       value: day.wakeAt ? stampTime(day.wakeAt) : '',
       buttonLabel: 'Проснулся',
-      onNow: () => edit((d) => { d.wakeAt = toStamp(new Date()); }),
-      onChange: (value) => setStamp('wakeAt', value),
+      onNow: () => recordNow('wakeAt', localDateKey),
+      onChange: (value) => setTime('wakeAt', wakeStampFor, value),
     }),
     timeRow({
       label: 'Отбой',
       value: day.bedAt ? stampTime(day.bedAt) : '',
       buttonLabel: 'Ложусь',
-      onNow: () => edit((d) => { d.bedAt = toStamp(new Date()); }),
-      onChange: (value) => setStamp('bedAt', value),
+      onNow: () => recordNow('bedAt', bedDayKeyFor),
+      onChange: (value) => setTime('bedAt', bedStampFor, value),
     }),
     lateBed && h('p', { class: 'hint hint--warning' }, `Позже ${settings.bedTarget} — завтра не дави на себя.`),
   );
 }
 
+/**
+ * Once a time is recorded, the "now" button disappears: a stray tap in the evening must not
+ * overwrite the morning wake-up time. The time stays editable in the field.
+ */
 function timeRow({ label, value, buttonLabel, onNow, onChange }) {
   const id = `time-${label}`;
   return h('div', { class: 'time-row' },
@@ -217,7 +230,9 @@ function timeRow({ label, value, buttonLabel, onNow, onChange }) {
       id, type: 'time', class: 'input input--time', value,
       onchange: (e) => onChange(e.target.value),
     }),
-    h('button', { class: `btn${value ? '' : ' btn--primary'}`, onclick: onNow }, value ? 'Сейчас' : buttonLabel),
+    value
+      ? h('span', { class: 'time-row__done', 'aria-hidden': 'true' }, '✓')
+      : h('button', { class: 'btn btn--primary', onclick: onNow }, buttonLabel),
   );
 }
 
@@ -252,7 +267,7 @@ function applicationsCard({ settings, days, dayKey, day, edit }) {
 
 // ---------- driving lesson ----------
 
-function drivingCard({ day, schedule, edit }) {
+function drivingCard({ settings, day, schedule, edit }) {
   const lesson = day.drivingLesson;
 
   if (!lesson) {
@@ -265,7 +280,8 @@ function drivingCard({ day, schedule, edit }) {
     );
   }
 
-  const invalid = !(toMinutes(lesson.end) > toMinutes(lesson.start));
+  // Same rule as the schedule: a lesson ending after midnight (23:00–00:30) is fine.
+  const invalid = !(toDayMinutes(lesson.end, settings.dayBoundary) > toDayMinutes(lesson.start, settings.dayBoundary));
   const setTime = (field, value) => edit((d) => { if (value) d.drivingLesson[field] = value; });
   const conflicts = schedule.blocks.filter((b) => b.conflict);
 
@@ -278,7 +294,7 @@ function drivingCard({ day, schedule, edit }) {
         h('input', { type: 'time', class: 'input input--time', value: lesson.end, onchange: (e) => setTime('end', e.target.value) })),
     ),
     invalid && h('p', { class: 'hint hint--warning' }, 'Конец урока должен быть позже начала.'),
-    !invalid && h('p', { class: 'muted hint' }, 'День перестроен: +30 мин на дорогу до и после.'),
+    !invalid && h('p', { class: 'muted hint' }, `День перестроен: +${settings.drivingTravelMin} мин на дорогу до и после.`),
     conflicts.length > 0 && h('p', { class: 'hint hint--warning' },
       `Пересекается: ${conflicts.map((b) => b.title).join(', ')}`),
     schedule.unplaced.length > 0 && h('div', { class: 'unplaced' },
@@ -386,6 +402,5 @@ function statusRow(ok, label, hint) {
 }
 
 function addMinutes(hhmm, add) {
-  const total = toMinutes(hhmm) + add;
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+  return formatMinutes(toMinutes(hhmm) + add);
 }
