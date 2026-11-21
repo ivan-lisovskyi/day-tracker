@@ -2,9 +2,19 @@
 
 An offline-first PWA for keeping a daily routine and habits: a timeline of the day, a checklist, a "minimum of the day" that keeps streaks alive on bad days, and a weekly summary to paste into a chat with Claude for review.
 
-Built for one real user (me) on iPhone: open in Safari → **Share → Add to Home Screen**. The UI is in Russian.
+**Live app:** <https://ivan-lisovskyi.github.io/day-tracker/>
 
-> **Status:** stage 1 is feature-complete; used locally over Wi-Fi, not hosted yet.
+Built for one real user (me) on iPhone. The UI is in Russian. All data stays on the device (localStorage); nothing is sent anywhere.
+
+> **Status:** stage 1 is feature-complete and deployed on GitHub Pages. Stage 2 (AI plan adjustment) is next.
+
+## Install on iPhone
+
+1. Open the live app link in **Safari** (not Chrome — only Safari can add web apps to the Home Screen).
+2. **Share → Add to Home Screen → Add**.
+3. Open it from the new icon. It runs full-screen and works offline; updates arrive as "Доступно обновление" → "Перезапустить".
+
+The Home Screen app keeps its own data, separate from Safari tabs. To move data between devices, use Settings → Backup (save a JSON file, then restore it on the other device).
 
 ## Run locally
 
@@ -26,7 +36,9 @@ It prints the addresses to open: `http://localhost:8000` on the Mac and `http://
 
 ### Hosting (HTTPS, offline mode)
 
-`npm run build` copies only the app files into `dist/`. Any static host works: point it at `dist/` with `npm run build` as the build command (e.g. Cloudflare Pages), or serve the repo root from GitHub Pages.
+The live app is served by **GitHub Pages** straight from the root of `main` — every push deploys automatically (`.nojekyll` makes Pages serve the files as they are).
+
+For other static hosts, `npm run build` copies only the app files into `dist/` (point the host at `dist/`, e.g. Cloudflare Pages).
 
 ### Releasing a change
 
