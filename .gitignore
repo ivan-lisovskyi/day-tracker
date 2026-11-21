@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Node (no dependencies yet, but keep the repo clean if any appear)
+node_modules/
+npm-debug.log*
+
+# Local secrets (stage 2: Cloudflare Worker)
+.env
+.dev.vars
+.wrangler/
+
+# Local editor/agent settings
+.claude/
