@@ -55,6 +55,15 @@ const server = createServer(async (req, res) => {
   }
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use — the server is probably already running in another terminal.`);
+    console.error(`Stop it there with Ctrl+C, or use another port: PORT=8001 npm start`);
+    process.exit(1);
+  }
+  throw err;
+});
+
 // '::' accepts both IPv6 and IPv4. Needed for the Mac's "name.local" address,
 // which iPhones often reach over IPv6.
 server.listen(PORT, '::', () => {
