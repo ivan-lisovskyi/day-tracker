@@ -32,7 +32,15 @@ function send(res, status, body, type = 'text/plain; charset=utf-8') {
   res.end(body);
 }
 
+/** One line per request, so you can see whether the phone reaches the Mac at all. */
+function logRequest(req, res) {
+  const time = new Date().toTimeString().slice(0, 8);
+  const from = (req.socket.remoteAddress ?? '?').replace(/^::ffff:/, '');
+  console.log(`${time}  ${res.statusCode}  ${req.method} ${req.url}  ← ${from}`);
+}
+
 const server = createServer(async (req, res) => {
+  res.on('finish', () => logRequest(req, res));
   let path;
   try {
     path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
