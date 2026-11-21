@@ -37,6 +37,18 @@ export function createInitialData() {
   return { schemaVersion: SCHEMA_VERSION, settings: createDefaultSettings(), days: {} };
 }
 
+/** An empty day record. Days are created lazily, on the first change. */
+export function createDay() {
+  return {
+    mode: 'normal',
+    done: {},
+    minimum: { cbr10: false, code15: false },
+    applications: 0,
+    drivingLesson: null,
+    note: '',
+  };
+}
+
 /**
  * Validates data (from storage or an imported backup), upgrades it to the current
  * schema and fills in settings that older versions did not have.

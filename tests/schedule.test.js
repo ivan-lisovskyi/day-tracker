@@ -98,9 +98,11 @@ test('an invalid lesson (end before start) leaves the day unchanged', () => {
   assert.deepEqual(view(withBadLesson.blocks), view(plain.blocks));
 });
 
-test('sick mode shows only the sleep routine', () => {
-  const { blocks } = buildDaySchedule({ settings, dayKey: TUESDAY, day: { mode: 'sick' } });
+test('sick mode shows only the sleep routine, even with a lesson planned', () => {
+  const day = { mode: 'sick', drivingLesson: { start: '11:00', end: '12:00' } };
+  const { blocks, unplaced } = buildDaySchedule({ settings, dayKey: TUESDAY, day });
   assert.deepEqual(blocks.map((b) => b.id), ['wake', 'phone', 'bedtime']);
+  assert.deepEqual(unplaced, []);
 });
 
 test('findCurrentBlock picks the block running now', () => {

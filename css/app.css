@@ -204,7 +204,7 @@ button {
   color: var(--accent);
 }
 
-/* ---------- Placeholder (stage 1) ---------- */
+/* ---------- Placeholder (screens not built yet) ---------- */
 
 .placeholder {
   text-align: center;
@@ -213,4 +213,448 @@ button {
 
 .placeholder p {
   margin: 0 0 6px;
+}
+
+/* ---------- Text helpers ---------- */
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 15px;
+}
+
+.hint--warning {
+  color: var(--warning);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.day-label {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* ---------- Card variants ---------- */
+
+.card--accent {
+  border-color: var(--accent);
+}
+
+.card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.card__head .card__title {
+  margin: 0;
+}
+
+label.card__title {
+  display: block;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.badge--success {
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+}
+
+.streak {
+  margin: 10px 0 0;
+  font-weight: 600;
+}
+
+/* ---------- Buttons (extra) ---------- */
+
+.btn:disabled {
+  opacity: 0.4;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.btn--block + .btn--block {
+  margin-top: 8px;
+}
+
+/* ---------- Banners ---------- */
+
+.banner {
+  border-radius: var(--radius);
+  padding: var(--pad);
+  border: 1px solid;
+}
+
+.banner p {
+  margin: 0;
+}
+
+.banner--warning {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, var(--bg));
+}
+
+.banner--danger {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+}
+
+.banner__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* ---------- Segmented control (day mode) ---------- */
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.segmented__item {
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  touch-action: manipulation;
+}
+
+.segmented__item[aria-checked="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* ---------- Checkbox rows ---------- */
+
+.check,
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--tap);
+  padding: 6px 0;
+}
+
+.check {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.check--nested {
+  padding-left: 38px;
+}
+
+.check__box {
+  flex: none;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  border: 2px solid var(--text-muted);
+  border-radius: 8px;
+  display: grid;
+  place-content: center;
+  background: transparent;
+}
+
+.check__box::after {
+  content: "";
+  width: 12px;
+  height: 7px;
+  border: solid var(--accent-text);
+  border-width: 0 0 3px 3px;
+  transform: translateY(-2px) rotate(-45deg);
+  opacity: 0;
+}
+
+.check__box:checked {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.check__box:checked::after {
+  opacity: 1;
+}
+
+.check__box:disabled {
+  opacity: 0.7;
+}
+
+.check__text {
+  display: flex;
+  flex-direction: column;
+}
+
+.check.is-done .check__text > :first-child,
+.check.is-done > .check__text {
+  color: var(--text-muted);
+}
+
+.check__hint {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.status-row__icon {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px dashed var(--text-muted);
+  display: grid;
+  place-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+
+.status-row.is-done .status-row__icon {
+  border: 0;
+  background: var(--success);
+}
+
+/* ---------- Inputs ---------- */
+
+.input {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.input--time {
+  min-width: 104px;
+  text-align: center;
+}
+
+.textarea {
+  width: 100%;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.time-row {
+  display: grid;
+  grid-template-columns: 1fr 112px 116px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.time-row__label {
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.lesson-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.lesson-times .input {
+  width: 100%;
+  color: var(--text);
+}
+
+.unplaced ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.card .btn--block:last-child {
+  margin-top: 12px;
+}
+
+/* ---------- Stepper + progress (job applications) ---------- */
+
+.stepper {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepper__btn {
+  min-height: 56px;
+  font-size: 26px;
+  padding: 0;
+}
+
+.stepper__value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.stepper__value strong {
+  font-size: 34px;
+}
+
+.progress {
+  height: 10px;
+  margin-top: 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.progress__bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.progress__bar--done {
+  background: var(--success);
+}
+
+/* ---------- Timeline ---------- */
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.block {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border-left: 4px solid var(--border);
+}
+
+.block__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.block__time {
+  flex: none;
+  min-width: 96px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.block__title {
+  flex: 1;
+  font-weight: 600;
+}
+
+.block__now {
+  display: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.block__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.block__details {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.block .check {
+  margin-top: 4px;
+}
+
+.block--focus { border-left-color: var(--accent); }
+.block--workout { border-left-color: var(--success); }
+.block--driving { border-left-color: var(--warning); }
+.block--sleep { border-left-color: #a58cff; }
+
+.block--free,
+.block--meal,
+.block--evening {
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-left-width: 4px;
+}
+
+.block--marker {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.block.is-current {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.block.is-current .block__now {
+  display: inline-block;
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.chip--accent {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip--warning {
+  border-color: var(--warning);
+  color: var(--warning);
 }

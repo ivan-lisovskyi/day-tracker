@@ -4,17 +4,17 @@ An offline-first PWA for keeping a daily routine and habits: a timeline of the d
 
 Built for one real user (me) on iPhone: open in Safari → **Share → Add to Home Screen**. The UI is in Russian.
 
-> **Status:** work in progress — stage 1, step 2 (rules engine).
+> **Status:** work in progress — stage 1, step 3 ("Today" screen).
 
 ## Run locally
 
-No build step and no dependencies. Any static server works:
+No build step and no dependencies:
 
 ```bash
-npm start          # same as: python3 -m http.server 8000
+npm start          # tiny Node static server: scripts/serve.mjs
 ```
 
-Open <http://localhost:8000>. To try it on an iPhone in the same Wi-Fi network, find the Mac's IP with `ipconfig getifaddr en0` and open `http://<that-ip>:8000` in Safari.
+It prints two addresses: `http://localhost:8000` for the Mac and `http://<Mac's IP>:8000` for an iPhone in the same Wi-Fi network. The dev server disables caching, so a reload always shows the latest code.
 
 > Offline mode (service worker) only works over HTTPS, so it is tested on GitHub Pages, not over the local network.
 
@@ -34,7 +34,7 @@ npm test           # node --test, no libraries
 
 - [x] App shell: dark theme, tab bar, iOS home-screen meta tags, manifest, icons
 - [x] Rules engine + tests (day boundary, driving lessons, workout carry-over, streaks)
-- [ ] "Today" screen
+- [x] "Today" screen
 - [ ] "Week" screen + text export
 - [ ] Settings + JSON backup
 - [ ] Offline support

@@ -1,6 +1,7 @@
 /**
  * App entry point: hash-based router between the three tabs.
- * Each screen module exports { title, render(root) }.
+ * Each screen module exports { title, render(root) }; render may return a cleanup
+ * function (unsubscribe, clear timers) that runs when another tab opens.
  */
 import * as today from './ui/today.js';
 import * as week from './ui/week.js';
@@ -11,6 +12,7 @@ const DEFAULT_ROUTE = 'today';
 
 const screenEl = document.getElementById('screen');
 const titleEl = document.getElementById('screen-title');
+let cleanupScreen = null;
 
 function currentRoute() {
   const name = location.hash.replace('#', '');
@@ -29,8 +31,9 @@ function render() {
     else link.removeAttribute('aria-current');
   }
 
+  cleanupScreen?.();
   screenEl.replaceChildren();
-  screen.render(screenEl);
+  cleanupScreen = screen.render(screenEl) ?? null;
   window.scrollTo(0, 0);
 }
 

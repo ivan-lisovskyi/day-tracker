@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addDays, dayKeyFor, formatMinutes, isoWeekday, nowDayMinutes, stampToDayMinutes,
-  toDayMinutes, toMinutes, toStamp, weekKeys, weekStart,
+  stampFromDayTime, stampTime, toDayMinutes, toMinutes, toStamp, weekKeys, weekStart,
 } from '../js/logic/time.js';
 
 test('toMinutes / formatMinutes round-trip and wrap past midnight', () => {
@@ -46,4 +46,11 @@ test('stamps: bedtime after midnight is measured from the tracked day', () => {
   assert.equal(stampToDayMinutes('2026-11-24T01:20', '2026-11-23'), 1520);
   assert.equal(stampToDayMinutes('2026-11-23T23:40', '2026-11-23'), 1420);
   assert.equal(stampToDayMinutes('2026-11-23T09:12:00', '2026-11-23'), 552);
+});
+
+test('stampFromDayTime puts night times on the next calendar date', () => {
+  assert.equal(stampFromDayTime('2026-11-23', '01:20'), '2026-11-24T01:20');
+  assert.equal(stampFromDayTime('2026-11-23', '23:40'), '2026-11-23T23:40');
+  assert.equal(stampFromDayTime('2026-11-23', '09:05'), '2026-11-23T09:05');
+  assert.equal(stampTime('2026-11-24T01:20'), '01:20');
 });

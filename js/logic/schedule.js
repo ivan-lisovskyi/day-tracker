@@ -7,7 +7,7 @@
 import { isoWeekday, toDayMinutes } from './time.js';
 
 /** Kinds still shown in "sick" mode: only the sleep routine counts on those days. */
-const SICK_MODE_KINDS = new Set(['sleep', 'driving']);
+const SICK_MODE_KINDS = new Set(['sleep']);
 
 export function isWorkoutDay(dayKey, settings) {
   return settings.workoutDays.includes(isoWeekday(dayKey));
