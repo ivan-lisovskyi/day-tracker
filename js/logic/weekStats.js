@@ -1,0 +1,101 @@
+/**
+ * Weekly statistics as plain JSON.
+ *
+ * This object is the contract for stage 2: the text export is rendered from it,
+ * and the "Adjust plan with AI" button will send it to the Cloudflare Worker as is.
+ * Bump WEEK_STATS_VERSION when the shape changes.
+ */
+import { formatMinutes, isoWeekday, stampTime, weekKeys } from './time.js';
+import {
+  bedMinutes, habitStatus, isDayCounted, isWorkoutPlanned, listHabits, minimumStatus, wakeMinutes,
+} from './rules.js';
+import { habitStreak, minimumStreak } from './streaks.js';
+
+export const WEEK_STATS_VERSION = 1;
+
+/**
+ * @param {object} data      { settings, days }
+ * @param {string} mondayKey first day of the week
+ * @param {string} todayKey  days after it are "future" and not evaluated
+ */
+export function buildWeekStats(data, mondayKey, todayKey) {
+  const { settings, days } = data;
+  const habits = listHabits(settings);
+  const keys = weekKeys(mondayKey);
+  const dayStats = keys.map((key) => buildDay(key, days, settings, habits, todayKey));
+  const past = dayStats.filter((d) => !d.isFuture);
+
+  const wakeTimes = past.map((d) => wakeMinutes(days[d.date], d.date)).filter((m) => m != null);
+  const bedTimes = past.map((d) => bedMinutes(days[d.date], d.date)).filter((m) => m != null);
+  const isCurrentWeek = keys.includes(todayKey);
+
+  return {
+    version: WEEK_STATS_VERSION,
+    week: { start: keys[0], end: keys[6] },
+    goals: {
+      weeklyApplications: settings.weeklyApplicationsGoal,
+      wakeTarget: settings.wakeTarget,
+      wakeToleranceMin: settings.wakeToleranceMin,
+      bedTarget: settings.bedTarget,
+      workoutDays: settings.workoutDays,
+    },
+    totals: {
+      daysElapsed: past.length,
+      minimumMet: past.filter((d) => d.mode !== 'sick' && d.minimum?.met).length,
+      sickDays: past.filter((d) => d.mode === 'sick').length,
+      minimumModeDays: past.filter((d) => d.mode === 'minimum').length,
+      applications: dayStats.reduce((sum, d) => sum + d.applications, 0),
+      drivingLessons: past.filter((d) => d.drivingLesson).length,
+      workoutsPlanned: past.filter((d) => d.habits.workout !== null).length,
+      workoutsDone: past.filter((d) => d.habits.workout === true).length,
+      averageWake: average(wakeTimes),
+      averageBed: average(bedTimes),
+    },
+    habits: habits.map((habit) => {
+      const statuses = past.map((d) => d.habits[habit.id]);
+      return {
+        id: habit.id,
+        title: habit.title,
+        done: statuses.filter((s) => s === true).length,
+        applicable: statuses.filter((s) => s !== null).length,
+      };
+    }),
+    streaks: isCurrentWeek
+      ? {
+        asOf: todayKey,
+        minimum: minimumStreak(todayKey, days, settings),
+        habits: Object.fromEntries(habits.map((h) => [h.id, habitStreak(h.id, todayKey, days, settings)])),
+      }
+      : null,
+    days: dayStats,
+  };
+}
+
+function buildDay(key, days, settings, habits, todayKey) {
+  const day = days[key];
+  const isFuture = key > todayKey; // ISO dates compare correctly as strings
+
+  return {
+    date: key,
+    weekday: isoWeekday(key),
+    isToday: key === todayKey,
+    isFuture,
+    hasRecord: Boolean(day),
+    mode: day?.mode ?? null,
+    counted: isFuture ? null : isDayCounted(day, key, settings),
+    minimum: day ? minimumStatus(day, key, settings) : null,
+    wakeAt: day?.wakeAt ? stampTime(day.wakeAt) : null,
+    bedAt: day?.bedAt ? stampTime(day.bedAt) : null,
+    applications: day?.applications ?? 0,
+    drivingLesson: day?.drivingLesson ?? null,
+    workout: isWorkoutPlanned(key, days, settings) ? 'workout' : 'stretch',
+    habits: Object.fromEntries(habits.map((h) => [h.id, isFuture ? null : habitStatus(h.id, key, days, settings)])),
+    note: day?.note?.trim() || null,
+  };
+}
+
+/** Average of day minutes as "HH:MM" (works across midnight: 00:50 and 01:10 → 01:00). */
+function average(values) {
+  if (values.length === 0) return null;
+  return formatMinutes(values.reduce((a, b) => a + b, 0) / values.length);
+}

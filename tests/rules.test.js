@@ -67,6 +67,11 @@ test('no record for the previous day → nothing is carried over', () => {
   assert.equal(hasPendingWorkout(SATURDAY, {}, settings), false);
 });
 
+test('a workout is not carried over from a sick day', () => {
+  const days = { [FRIDAY]: { mode: 'sick', done: {} } };
+  assert.equal(hasPendingWorkout(SATURDAY, days, settings), false);
+});
+
 test('going to bed after 02:00 suggests minimum mode the next day', () => {
   const late = { [FRIDAY]: { bedAt: `${SATURDAY}T02:10` } };
   assert.equal(shouldSuggestMinimum(SATURDAY, late, settings), true);

@@ -64,13 +64,13 @@ export function isWorkoutPlanned(dayKey, days, settings, depth = 0) {
 /**
  * A workout planned yesterday but not done moves to today. It never stacks: there is
  * at most one pending workout, and on a regular workout day it simply merges in.
- * A day with no record at all (app not opened) does not carry anything over.
+ * Nothing is carried over from a sick day or from a day with no record (app not opened).
  */
 export function hasPendingWorkout(dayKey, days, settings, depth = 0) {
   if (depth >= MAX_CARRY_DEPTH) return false;
   const prevKey = addDays(dayKey, -1);
   const prev = days[prevKey];
-  if (!prev) return false;
+  if (!prev || prev.mode === 'sick') return false;
   if (!isWorkoutPlanned(prevKey, days, settings, depth + 1)) return false;
   return !prev.done?.workout;
 }

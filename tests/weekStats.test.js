@@ -1,0 +1,114 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { buildWeekStats } from '../js/logic/weekStats.js';
+import { formatWeekRange, weekToText } from '../js/logic/exportText.js';
+import { createDefaultSettings } from '../js/state/defaults.js';
+
+const MONDAY = '2026-11-16';
+const TODAY = '2026-11-21'; // Saturday
+
+/** One realistic week; Sunday is still in the future. */
+function sampleData() {
+  return {
+    settings: createDefaultSettings(),
+    days: {
+      '2026-11-16': { // Mon: minimum met, workout done
+        mode: 'normal', wakeAt: '2026-11-16T09:10', bedAt: '2026-11-17T00:50',
+        minimum: { cbr10: true }, applications: 1, done: { workout: true }, note: 'Хороший   день',
+      },
+      '2026-11-17': { // Tue: bad day, overslept
+        mode: 'minimum', wakeAt: '2026-11-17T09:40', bedAt: '2026-11-18T01:10', minimum: {}, applications: 0, done: {},
+      },
+      '2026-11-18': { mode: 'sick', done: {} }, // Wed: sick on a workout day
+      // Thu 19: app not opened
+      '2026-11-20': { // Fri: lesson, code instead of an application, workout missed
+        mode: 'normal', wakeAt: '2026-11-20T09:00', minimum: { cbr10: true, code15: true },
+        applications: 2, drivingLesson: { start: '14:00', end: '15:00' }, done: { cbr: true },
+      },
+      '2026-11-21': { mode: 'normal', wakeAt: '2026-11-21T09:20', applications: 0, done: {} }, // Sat: today
+    },
+  };
+}
+
+test('weekly totals', () => {
+  const stats = buildWeekStats(sampleData(), MONDAY, TODAY);
+
+  assert.deepEqual(stats.week, { start: '2026-11-16', end: '2026-11-22' });
+  assert.deepEqual(stats.totals, {
+    daysElapsed: 6,
+    minimumMet: 2, // Mon, Fri
+    sickDays: 1,
+    minimumModeDays: 1,
+    applications: 3,
+    drivingLessons: 1,
+    workoutsPlanned: 3, // Mon, Fri, Sat (carried from Fri); Wed was sick and is not carried
+    workoutsDone: 1,
+    averageWake: '09:18', // mean of 09:10, 09:40, 09:00, 09:20 = 09:17.5, rounded
+    averageBed: '01:00', // 00:50 and 01:10 — averaged across midnight
+  });
+});
+
+test('per-day details, future days and habits', () => {
+  const stats = buildWeekStats(sampleData(), MONDAY, TODAY);
+  const [mon, , wed, thu, fri, sat, sun] = stats.days;
+
+  assert.equal(mon.counted, true);
+  assert.equal(mon.note, 'Хороший   день');
+  assert.equal(wed.counted, true); // sick days count
+  assert.equal(wed.habits.code, null);
+  assert.equal(thu.hasRecord, false);
+  assert.equal(thu.counted, false);
+  assert.deepEqual(fri.drivingLesson, { start: '14:00', end: '15:00' });
+  assert.equal(sat.isToday, true);
+  assert.equal(sat.workout, 'workout'); // carried over from Friday
+  assert.equal(sun.isFuture, true);
+  assert.equal(sun.counted, null);
+
+  const wake = stats.habits.find((h) => h.id === 'wake');
+  assert.deepEqual([wake.done, wake.applicable], [3, 6]); // Mon, Fri, Sat on time
+});
+
+test('streaks are included only for the current week', () => {
+  const current = buildWeekStats(sampleData(), MONDAY, TODAY);
+  assert.equal(current.streaks.asOf, TODAY);
+  assert.equal(current.streaks.minimum, 1); // Fri; Thu has no record
+
+  const past = buildWeekStats(sampleData(), '2026-11-09', TODAY);
+  assert.equal(past.streaks, null);
+});
+
+test('the stats are plain JSON (ready to send to a server in stage 2)', () => {
+  const stats = buildWeekStats(sampleData(), MONDAY, TODAY);
+  assert.deepEqual(JSON.parse(JSON.stringify(stats)), stats);
+});
+
+test('text export contains the summary, every day and the note', () => {
+  const text = weekToText(buildWeekStats(sampleData(), MONDAY, TODAY));
+
+  for (const expected of [
+    'Неделя 16–22 ноября 2026',
+    '(прошло дней: 6 из 7)',
+    '- Минимум дня выполнен: 2 из 5 (болел: 1), дней в режиме «минимум»: 1',
+    '- Отклики на работу: 3 из 5',
+    '- Тренировки с гирей: 1 из 3',
+    '- Отбой в среднем: 01:00 (цель 01:00)',
+    'Пн 16.11 — минимум ✓ | подъём 09:10, отбой 00:50 | откликов 1',
+    '  заметка: Хороший день',
+    'Ср 18.11 — болел',
+    'Чт 19.11 — нет данных',
+    'Пт 20.11 — минимум ✓ | подъём 09:00, отбой — | откликов 2 | вождение 14:00–15:00',
+    'Сб 21.11 (сегодня) — минимум ✗',
+    '  пока не отмечено: Гиря 12 кг;',
+    'Вс 22.11 — ещё не наступил',
+    '- Подъём до 9:30: 3/6, серия 2',
+  ]) {
+    assert.ok(text.includes(expected), `missing "${expected}" in:\n${text}`);
+  }
+  assert.ok(!text.includes('серия 0'), 'zero streaks should be omitted');
+});
+
+test('week range label across months and years', () => {
+  assert.equal(formatWeekRange('2026-11-16', '2026-11-22'), '16–22 ноября 2026');
+  assert.equal(formatWeekRange('2026-11-30', '2026-12-06'), '30 ноября – 6 декабря 2026');
+  assert.equal(formatWeekRange('2026-12-28', '2027-01-03'), '28 декабря 2026 – 3 января 2027');
+});
