@@ -870,3 +870,178 @@ label.card__title {
 .cell--missed { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
 .cell--none { background: var(--surface-2); opacity: 0.5; }
 .cell--pending { border: 1px dashed var(--text-muted); background: transparent; }
+
+/* ---------- Settings ---------- */
+
+.banner--success {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, var(--bg));
+}
+
+.hint--top {
+  margin: 0 0 12px;
+}
+
+.field + .field,
+.field + .two-cols,
+.two-cols + .field,
+.field + .tasks-editor,
+.tasks-editor + .btn {
+  margin-top: 12px;
+}
+
+.field .input {
+  width: 100%;
+  color: var(--text);
+}
+
+.field__hint {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.field-label {
+  margin: 12px 0 6px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.card__title + .field-label {
+  margin-top: 0;
+}
+
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 32px;
+}
+
+.two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.two-cols .field + .field,
+.lesson-times .field + .field {
+  margin-top: 0;
+}
+
+.weekday-picker {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.weekday-picker__day {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-weight: 600;
+  touch-action: manipulation;
+}
+
+.weekday-picker__day[aria-pressed="true"] {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--accent-text);
+}
+
+.block-editors {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.block-editor {
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.block-editor__summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 8px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.block-editor__summary::-webkit-details-marker {
+  display: none;
+}
+
+.block-editor__summary::after {
+  content: "›";
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 22px;
+  transition: transform 0.15s ease;
+}
+
+.block-editor[open] .block-editor__summary::after {
+  transform: rotate(90deg);
+}
+
+.block-editor__title {
+  font-weight: 600;
+}
+
+.block-editor__body {
+  padding: 4px 12px 12px;
+}
+
+.block-editor .input {
+  background: var(--bg);
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: 1fr 48px;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.task-row .input {
+  width: 100%;
+}
+
+.task-row__remove {
+  padding: 0;
+  font-size: 22px;
+}
+
+.btn--small {
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 15px;
+}
+
+.btn--danger {
+  margin-top: 16px;
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+  color: var(--danger);
+}
+
+.input--number {
+  max-width: 120px;
+}
+
+.field .input--time {
+  max-width: 160px;
+}
+
+.two-cols .input--time {
+  max-width: none;
+}

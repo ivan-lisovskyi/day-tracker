@@ -80,3 +80,10 @@ export function updateDay(dayKey, mutator, options) {
     mutator(draft.days[dayKey]);
   }, options);
 }
+
+/** Replaces everything (used when restoring a backup). `next` must already be migrated. */
+export function replaceAll(next) {
+  data = structuredClone(next);
+  writeStorage();
+  for (const listener of listeners) listener(data);
+}

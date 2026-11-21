@@ -4,7 +4,7 @@ An offline-first PWA for keeping a daily routine and habits: a timeline of the d
 
 Built for one real user (me) on iPhone: open in Safari → **Share → Add to Home Screen**. The UI is in Russian.
 
-> **Status:** work in progress — stage 1, step 4 ("Week" screen).
+> **Status:** work in progress — stage 1, step 5 (settings and backup).
 
 ## Run locally
 
@@ -36,7 +36,7 @@ npm test           # node --test, no libraries
 - [x] Rules engine + tests (day boundary, driving lessons, workout carry-over, streaks)
 - [x] "Today" screen
 - [x] "Week" screen + text export
-- [ ] Settings + JSON backup
+- [x] Settings + JSON backup
 - [ ] Offline support
 - [ ] Stage 2: "Adjust plan with AI" via a Cloudflare Worker proxy to the Claude API
 

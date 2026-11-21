@@ -15,6 +15,8 @@ import {
 import { buildDaySchedule, findCurrentBlock } from '../logic/schedule.js';
 import { hasPendingWorkout, isBedOnTime, minimumStatus, shouldSuggestMinimum } from '../logic/rules.js';
 import { minimumStreak } from '../logic/streaks.js';
+import { shouldRemindBackup } from '../logic/backup.js';
+import { saveBackup } from './backup.js';
 
 export const title = 'Сегодня';
 
@@ -77,6 +79,7 @@ function buildScreen(data, dayKey, now) {
 
   const nodes = [
     saveErrorBanner(),
+    backupBanner(data, dayKey),
     lateNightBanner(ctx),
     modeCard(ctx),
     mode !== 'sick' && minimumCard(ctx),
@@ -96,6 +99,18 @@ function saveErrorBanner() {
   if (!store.getSaveError()) return null;
   return h('div', { class: 'banner banner--danger', role: 'alert' },
     h('p', {}, 'Не получается сохранить данные. Сделай экспорт бэкапа в настройках.'));
+}
+
+function backupBanner(data, dayKey) {
+  if (!shouldRemindBackup(data, dayKey)) return null;
+  const later = () => store.update((d) => { d.settings.backupReminderDismissedAt = toStamp(new Date()); });
+  return h('div', { class: 'banner banner--warning' },
+    h('p', {}, 'Неделя без бэкапа. Данные хранятся только в этом телефоне — сохрани копию в «Файлы».'),
+    h('div', { class: 'banner__actions' },
+      h('button', { class: 'btn btn--primary', onclick: () => saveBackup() }, 'Сохранить'),
+      h('button', { class: 'btn', onclick: later }, 'Позже'),
+    ),
+  );
 }
 
 function lateNightBanner({ settings, days, dayKey, edit }) {

@@ -75,5 +75,6 @@ export function createDefaultSettings() {
     ],
 
     lastBackupAt: null,
+    backupReminderDismissedAt: null,
   };
 }
