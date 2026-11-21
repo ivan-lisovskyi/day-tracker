@@ -5,6 +5,7 @@
 import { h } from './dom.js';
 import { formatDayLabel, formatRange } from './format.js';
 import { restoreBackup, saveBackup } from './backup.js';
+import { isStoragePersistent } from '../pwa.js';
 import * as store from '../state/store.js';
 import { toDayMinutes, stampTime, parseStamp } from '../logic/time.js';
 
@@ -32,6 +33,7 @@ const KIND_HINTS = {
 export function render(root) {
   const openBlocks = new Set(); // which block editors are expanded (survives re-renders)
   let notice = null; // { ok, text } after backup actions
+  let persistent = null; // is storage protected from automatic eviction?
 
   const draw = () => {
     rememberOpenEditors(root, openBlocks);
@@ -42,13 +44,22 @@ export function render(root) {
       goalsCard(settings),
       workoutCard(settings),
       blocksCard(settings, openBlocks),
-      backupCard(settings, (result) => { notice = result; draw(); }),
+      backupCard(settings, persistent, (result) => { notice = result; draw(); }),
     ];
     root.replaceChildren(...nodes.filter(Boolean));
   };
 
+  let active = true; // false once the user leaves this tab (the root element is reused)
   draw();
-  return store.subscribe(draw);
+  isStoragePersistent().then((value) => {
+    persistent = value;
+    if (active) draw();
+  });
+  const unsubscribe = store.subscribe(draw);
+  return () => {
+    active = false;
+    unsubscribe();
+  };
 }
 
 const save = (mutator) => store.update((draft) => mutator(draft.settings));
@@ -84,11 +95,11 @@ function workoutCard(s) {
     h('div', { class: 'weekday-picker' },
       WEEKDAYS.map((label, i) => {
         const day = i + 1;
-        const active = s.workoutDays.includes(day);
+        const isOn = s.workoutDays.includes(day);
         return h('button', {
-          class: 'weekday-picker__day', 'aria-pressed': String(active),
+          class: 'weekday-picker__day', 'aria-pressed': String(isOn),
           onclick: () => save((d) => {
-            d.workoutDays = active ? d.workoutDays.filter((x) => x !== day) : [...d.workoutDays, day].sort((x, y) => x - y);
+            d.workoutDays = isOn ? d.workoutDays.filter((x) => x !== day) : [...d.workoutDays, day].sort((x, y) => x - y);
           }),
         }, label);
       })),
@@ -198,7 +209,7 @@ function tasksEditor(block, edit) {
 
 // ---------- backup ----------
 
-function backupCard(s, setNotice) {
+function backupCard(s, persistent, setNotice) {
   const fileInput = h('input', {
     type: 'file', accept: 'application/json,.json', class: 'visually-hidden', tabindex: -1,
     onchange: async (e) => {
@@ -216,6 +227,10 @@ function backupCard(s, setNotice) {
     h('p', { class: 'muted hint hint--top' },
       'Данные хранятся только на этом устройстве. Раз в неделю сохраняй бэкап в «Файлы».'),
     h('p', {}, 'Последний бэкап: ', h('strong', {}, last)),
+    persistent !== null && h('p', { class: 'muted hint hint--top' },
+      persistent
+        ? 'Хранилище защищено от автоочистки браузером.'
+        : 'Браузер может очистить данные при нехватке места — тем важнее бэкап.'),
     h('button', {
       class: 'btn btn--primary btn--block',
       onclick: async () => {

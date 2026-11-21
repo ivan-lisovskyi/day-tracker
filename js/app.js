@@ -6,6 +6,7 @@
 import * as today from './ui/today.js';
 import * as week from './ui/week.js';
 import * as settings from './ui/settings.js';
+import { registerServiceWorker, requestPersistentStorage } from './pwa.js';
 
 const routes = { today, week, settings };
 const DEFAULT_ROUTE = 'today';
@@ -39,3 +40,6 @@ function render() {
 
 window.addEventListener('hashchange', render);
 render();
+
+registerServiceWorker();
+requestPersistentStorage();
