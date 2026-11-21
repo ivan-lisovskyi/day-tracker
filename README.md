@@ -4,7 +4,7 @@ An offline-first PWA for keeping a daily routine and habits: a timeline of the d
 
 Built for one real user (me) on iPhone: open in Safari → **Share → Add to Home Screen**. The UI is in Russian.
 
-> **Status:** work in progress — stage 1, step 6 (offline support).
+> **Status:** stage 1 is feature-complete; used locally over Wi-Fi, not hosted yet.
 
 ## Run locally
 
@@ -14,9 +14,19 @@ No build step and no dependencies:
 npm start          # tiny Node static server: scripts/serve.mjs
 ```
 
-It prints two addresses: `http://localhost:8000` for the Mac and `http://<Mac's IP>:8000` for an iPhone in the same Wi-Fi network. The dev server disables caching, so a reload always shows the latest code.
+It prints the addresses to open: `http://localhost:8000` on the Mac and `http://<name>.local:8000` on an iPhone in the same Wi-Fi network (the `.local` name stays the same when the Mac's IP changes). The dev server disables caching, so a reload always shows the latest code.
 
-> The service worker is enabled only on HTTPS (GitHub Pages), so local edits always show up after a reload. To try offline mode on the Mac, open <http://localhost:8000/?sw>. Over `http://192.168.x.x` browsers do not allow service workers at all.
+> The service worker is enabled only on HTTPS, so local edits always show up after a reload. To try offline mode on the Mac, open <http://localhost:8000/?sw>. Over plain `http://` on a phone browsers do not allow service workers at all.
+
+### Using it on an iPhone without hosting
+
+1. macOS firewall: allow incoming connections for `node` (System Settings → Network → Firewall → Options), otherwise the phone cannot reach the server.
+2. Run `npm start`, open the printed `http://<name>.local:8000` in Safari → Share → **Add to Home Screen**.
+3. Limits of this mode: the Mac must be on and in the same Wi-Fi, there is no offline mode, and copying to the clipboard falls back to a manual-copy box. Data lives on the phone and is tied to the exact address — keep using the same one.
+
+### Hosting (HTTPS, offline mode)
+
+`npm run build` copies only the app files into `dist/`. Any static host works: point it at `dist/` with `npm run build` as the build command (e.g. Cloudflare Pages), or serve the repo root from GitHub Pages.
 
 ### Releasing a change
 
@@ -32,7 +42,7 @@ npm test           # node --test, no libraries
 
 ## Stack
 
-- **Vanilla JavaScript (ES modules) + plain CSS**, no framework and no bundler — the code GitHub Pages serves is the code in this repo.
+- **Vanilla JavaScript (ES modules) + plain CSS**, no framework and no bundler — the code the browser runs is the code in this repo.
 - **localStorage** behind a small store module, with export/import of a JSON backup.
 - **Service worker** for offline use: every file is cached on install; a new version waits until you tap "Перезапустить".
 

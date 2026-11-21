@@ -8,7 +8,7 @@
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { networkInterfaces } from 'node:os';
+import { hostname, networkInterfaces } from 'node:os';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -55,13 +55,19 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+// '::' accepts both IPv6 and IPv4. Needed for the Mac's "name.local" address,
+// which iPhones often reach over IPv6.
+server.listen(PORT, '::', () => {
   const lanAddresses = Object.values(networkInterfaces())
     .flat()
     .filter((net) => net && net.family === 'IPv4' && !net.internal)
     .map((net) => net.address);
+  const name = hostname();
 
   console.log(`Mac:    http://localhost:${PORT}`);
-  for (const address of lanAddresses) console.log(`iPhone: http://${address}:${PORT}  (same Wi-Fi)`);
+  if (name.endsWith('.local')) {
+    console.log(`iPhone: http://${name}:${PORT}  (same Wi-Fi; stays the same when the IP changes)`);
+  }
+  for (const address of lanAddresses) console.log(`        http://${address}:${PORT}  (by IP)`);
   console.log('Stop with Ctrl+C');
 });
