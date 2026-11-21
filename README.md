@@ -4,7 +4,7 @@ An offline-first PWA for keeping a daily routine and habits: a timeline of the d
 
 Built for one real user (me) on iPhone: open in Safari → **Share → Add to Home Screen**. The UI is in Russian.
 
-> **Status:** work in progress — stage 1, step 1 (app shell).
+> **Status:** work in progress — stage 1, step 2 (rules engine).
 
 ## Run locally
 
@@ -33,7 +33,7 @@ npm test           # node --test, no libraries
 ## Roadmap
 
 - [x] App shell: dark theme, tab bar, iOS home-screen meta tags, manifest, icons
-- [ ] Rules engine + tests (day boundary, driving lessons, workout carry-over, streaks)
+- [x] Rules engine + tests (day boundary, driving lessons, workout carry-over, streaks)
 - [ ] "Today" screen
 - [ ] "Week" screen + text export
 - [ ] Settings + JSON backup
