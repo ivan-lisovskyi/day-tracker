@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   bedDayKeyFor, bedStampFor, habitStatus, hasPendingWorkout, isBedOnTime, isDayCounted, isWorkoutPlanned,
-  minimumStatus, shouldSuggestMinimum, wakeStampFor,
+  listHabits, minimumStatus, minimumSuggestionReason, shouldSuggestMinimum, wakeStampFor,
 } from '../js/logic/rules.js';
 import { createDefaultSettings } from '../js/state/defaults.js';
 
@@ -129,4 +129,28 @@ test('tasks of sleep blocks count on sick days', () => {
   const days = { [TUESDAY]: { mode: 'sick', done: { 'no-phone': true } } };
   assert.equal(habitStatus('no-phone', TUESDAY, days, settings), true);
   assert.equal(habitStatus('code', TUESDAY, days, settings), null);
+});
+
+test('a low sleep or energy check-in suggests minimum mode, with the reason', () => {
+  const checkin = (sleep, energy, extra = {}) => ({ [TUESDAY]: { checkin: { sleep, energy }, ...extra } });
+  assert.equal(minimumSuggestionReason(TUESDAY, checkin(4, 2), settings), 'low-checkin');
+  assert.equal(minimumSuggestionReason(TUESDAY, checkin(1, 4), settings), 'low-checkin');
+  assert.equal(minimumSuggestionReason(TUESDAY, checkin(3, 3), settings), null);
+  assert.equal(minimumSuggestionReason(TUESDAY, checkin(1, 1, { mode: 'minimum' }), settings), null);
+  assert.equal(minimumSuggestionReason(TUESDAY, checkin(1, 1, { minimumSuggestionDismissed: true }), settings), null);
+
+  const lateNight = { [MONDAY]: { bedAt: `${TUESDAY}T02:30` } };
+  assert.equal(minimumSuggestionReason(TUESDAY, lateNight, settings), 'late-bed');
+});
+
+test('"close the day" is a habit', () => {
+  assert.ok(listHabits(settings).some((h) => h.id === 'shutdown'));
+  const days = {
+    [MONDAY]: { closedAt: `${MONDAY}T23:10`, done: {} },
+    [TUESDAY]: { done: {} },
+    [FRIDAY]: { mode: 'sick', done: {} },
+  };
+  assert.equal(habitStatus('shutdown', MONDAY, days, settings), true);
+  assert.equal(habitStatus('shutdown', TUESDAY, days, settings), false);
+  assert.equal(habitStatus('shutdown', FRIDAY, days, settings), null);
 });

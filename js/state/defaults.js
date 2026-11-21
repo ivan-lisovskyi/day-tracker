@@ -74,6 +74,8 @@ export function createDefaultSettings() {
       { id: 'bedtime', title: 'Отбой', kind: 'sleep', start: '01:00', end: '01:00', movable: false, tasks: [] },
     ],
 
+    shutdownFrom: '21:00', // the "close the day" card moves to the top of "Сегодня" from this time
+
     lastBackupAt: null,
     backupReminderDismissedAt: null,
   };

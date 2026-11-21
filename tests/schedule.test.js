@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildDaySchedule, findCurrentBlock } from '../js/logic/schedule.js';
+import { buildDaySchedule, findCurrentBlock, nowAndNext } from '../js/logic/schedule.js';
 import { createDefaultSettings } from '../js/state/defaults.js';
 import { formatMinutes } from '../js/logic/time.js';
 
@@ -111,4 +111,26 @@ test('findCurrentBlock picks the block running now', () => {
   assert.equal(findCurrentBlock(blocks, 17 * 60).id, 'free');
   assert.equal(findCurrentBlock(blocks, 9 * 60 + 40), null); // gap between workout and breakfast
   assert.equal(findCurrentBlock(blocks, 1480).id, 'phone'); // 00:40 at night
+});
+
+test('nowAndNext: current block with remaining time, and what comes next', () => {
+  const { blocks } = buildDaySchedule({ settings, dayKey: MONDAY });
+
+  const midBlock = nowAndNext(blocks, 11 * 60 + 40); // 11:40, inside "Поиск работы" 11:30–12:30
+  assert.equal(midBlock.current.id, 'jobs');
+  assert.equal(midBlock.remainingMin, 50);
+  assert.ok(Math.abs(midBlock.progress - 10 / 60) < 1e-9);
+  assert.equal(midBlock.next.id, 'lunch');
+
+  const gap = nowAndNext(blocks, 9 * 60 + 40); // 09:40, between workout and breakfast
+  assert.equal(gap.current, null);
+  assert.equal(gap.next.id, 'breakfast');
+
+  const night = nowAndNext(blocks, 1480); // 00:40: phone block, then the bedtime marker
+  assert.equal(night.current.id, 'phone');
+  assert.equal(night.next.id, 'bedtime');
+
+  const after = nowAndNext(blocks, 1510); // 01:10: the day is over
+  assert.equal(after.current, null);
+  assert.equal(after.next, null);
 });

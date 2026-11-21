@@ -11,7 +11,7 @@ import {
 } from './rules.js';
 import { habitStreak, minimumStreak } from './streaks.js';
 
-export const WEEK_STATS_VERSION = 1;
+export const WEEK_STATS_VERSION = 2; // v2: check-ins, focus of the day, closed days
 
 /**
  * @param {object} data      { settings, days }
@@ -27,6 +27,7 @@ export function buildWeekStats(data, mondayKey, todayKey) {
 
   const wakeTimes = past.map((d) => wakeMinutes(days[d.date], d.date)).filter((m) => m != null);
   const bedTimes = past.map((d) => bedMinutes(days[d.date], d.date)).filter((m) => m != null);
+  const checkins = past.map((d) => d.checkin).filter(Boolean);
   const isCurrentWeek = keys.includes(todayKey);
 
   return {
@@ -50,6 +51,10 @@ export function buildWeekStats(data, mondayKey, todayKey) {
       workoutsDone: past.filter((d) => d.habits.workout === true).length,
       averageWake: average(wakeTimes),
       averageBed: average(bedTimes),
+      checkins: checkins.length,
+      averageSleep: averageRating(checkins.map((c) => c.sleep)),
+      averageEnergy: averageRating(checkins.map((c) => c.energy)),
+      daysClosed: past.filter((d) => d.closed).length,
     },
     habits: habits.map((habit) => {
       const statuses = past.map((d) => d.habits[habit.id]);
@@ -91,7 +96,16 @@ function buildDay(key, days, settings, habits, todayKey) {
     workout: isWorkoutPlanned(key, days, settings) ? 'workout' : 'stretch',
     habits: Object.fromEntries(habits.map((h) => [h.id, isFuture ? null : habitStatus(h.id, key, days, settings)])),
     note: day?.note?.trim() || null,
+    checkin: day?.checkin ?? null,
+    focus: day?.focus?.trim() || null,
+    closed: Boolean(day?.closedAt),
   };
+}
+
+/** Average of 1–5 ratings, one decimal (3.75 → 3.8), or null. */
+function averageRating(values) {
+  if (values.length === 0) return null;
+  return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
 }
 
 /** Average of day minutes as "HH:MM" (works across midnight: 00:50 and 01:10 → 01:00). */

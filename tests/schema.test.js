@@ -71,3 +71,17 @@ test('broken day fields are dropped, the rest of the day is kept', () => {
   assert.equal(day.note, '');
   assert.deepEqual(Object.keys(migrate(data).days), ['2026-11-23']);
 });
+
+test('check-in, focus and closedAt are validated', () => {
+  const data = createInitialData();
+  data.days['2026-11-23'] = { checkin: { sleep: 4, energy: 2 }, focus: 'Отправить 2 отклика', closedAt: '2026-11-23T23:05' };
+  data.days['2026-11-24'] = { checkin: { sleep: 9, energy: 'high' }, focus: 7, closedAt: 'yesterday' };
+  const { days, settings } = migrate(data);
+  assert.deepEqual(days['2026-11-23'].checkin, { sleep: 4, energy: 2 });
+  assert.equal(days['2026-11-23'].focus, 'Отправить 2 отклика');
+  assert.equal(days['2026-11-23'].closedAt, '2026-11-23T23:05');
+  assert.equal(days['2026-11-24'].checkin, undefined);
+  assert.equal(days['2026-11-24'].focus, undefined);
+  assert.equal(days['2026-11-24'].closedAt, undefined);
+  assert.equal(settings.shutdownFrom, '21:00');
+});

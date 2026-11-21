@@ -51,6 +51,27 @@ export function findCurrentBlock(blocks, minutes) {
   return current;
 }
 
+/**
+ * What is happening now and what comes next, for the "Сейчас" card.
+ * @returns {{ current: object|null, next: object|null, remainingMin: number|null, progress: number|null }}
+ *   progress is 0..1 through the current block; next is the first block starting after now
+ *   (zero-length markers such as "Отбой 01:00" included).
+ */
+export function nowAndNext(blocks, minutes) {
+  const current = findCurrentBlock(blocks, minutes);
+  const next = blocks
+    .filter((block) => block.start > minutes && block !== current)
+    .sort((a, b) => a.start - b.start)[0] ?? null;
+
+  if (!current) return { current: null, next, remainingMin: null, progress: null };
+  return {
+    current,
+    next,
+    remainingMin: current.end - minutes,
+    progress: (minutes - current.start) / (current.end - current.start),
+  };
+}
+
 // ---------- internals ----------
 
 function expandTemplate(settings, { workoutToday, carriedOver }) {

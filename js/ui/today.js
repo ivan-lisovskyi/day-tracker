@@ -7,6 +7,10 @@
  */
 import { createRenderer, h } from './dom.js';
 import { formatDayLabel, formatDuration, formatRange, plural } from './format.js';
+import { checkRow, statusRow } from './rows.js';
+import { nowCard } from './nowCard.js';
+import { checkinCard, checkinSummary } from './checkin.js';
+import { shutdownCard } from './shutdown.js';
 import * as store from '../state/store.js';
 import { createDay } from '../state/schema.js';
 import {
@@ -14,7 +18,7 @@ import {
 } from '../logic/time.js';
 import { buildDaySchedule, findCurrentBlock } from '../logic/schedule.js';
 import {
-  bedDayKeyFor, bedStampFor, hasPendingWorkout, isBedOnTime, minimumStatus, shouldSuggestMinimum, wakeStampFor,
+  bedDayKeyFor, bedStampFor, hasPendingWorkout, isBedOnTime, minimumStatus, minimumSuggestionReason, wakeStampFor,
 } from '../logic/rules.js';
 import { minimumStreak } from '../logic/streaks.js';
 import { shouldRemindBackup } from '../logic/backup.js';
@@ -30,27 +34,21 @@ const MODES = [
 
 const REFRESH_MS = 30_000;
 
-export function render(root) {
-  let dayKey = null;
-  let schedule = null;
+/** Days whose "close the day" card was opened early (before shutdownFrom), kept across re-renders. */
+const openEarly = new Set();
 
+export function render(root) {
   const draw = () => {
     const now = new Date();
     const data = store.getData();
-    dayKey = dayKeyFor(now, data.settings.dayBoundary);
-    const view = buildScreen(data, dayKey, now);
-    schedule = view.schedule;
-    root.replaceChildren(...view.nodes);
-  };
-
-  const tick = () => {
-    const now = new Date();
-    const { settings } = store.getData();
-    if (dayKeyFor(now, settings.dayBoundary) !== dayKey) draw(); // a new day started
-    else highlightCurrent(root, schedule, nowDayMinutes(now, settings.dayBoundary));
+    const dayKey = dayKeyFor(now, data.settings.dayBoundary);
+    root.replaceChildren(...buildScreen(data, dayKey, now));
   };
 
   const renderer = createRenderer(root, draw);
+  // Every 30 s: refresh the "Сейчас" card and the highlight (postponed while typing).
+  const tick = () => renderer.request();
+
   const onVisible = () => {
     if (document.visibilityState === 'visible') renderer.request(); // back from background: time has passed
   };
@@ -75,26 +73,40 @@ function buildScreen(data, dayKey, now) {
   const schedule = buildDaySchedule({
     settings, dayKey, day, pendingWorkout: hasPendingWorkout(dayKey, days, settings),
   });
+  const nowMinutes = nowDayMinutes(now, settings.dayBoundary);
   const ctx = {
-    settings, days, dayKey, day, mode, schedule,
-    nowMinutes: nowDayMinutes(now, settings.dayBoundary),
+    settings, days, dayKey, day, mode, schedule, nowMinutes,
     edit: (mutator, options) => store.updateDay(dayKey, mutator, options),
   };
+
+  // Morning: the check-in waits at the top until done. Evening (from shutdownFrom): "close the day"
+  // moves to the top; earlier it can be opened from the bottom of the screen.
+  const evening = nowMinutes >= toDayMinutes(settings.shutdownFrom, settings.dayBoundary);
+  const showCheckin = !day.checkin && !evening;
+  const shutdownOnTop = evening || Boolean(day.closedAt);
+  const shutdownOpen = shutdownOnTop || openEarly.has(dayKey);
 
   const nodes = [
     saveErrorBanner(),
     backupBanner(data, dayKey),
-    lateNightBanner(ctx),
+    !shutdownOnTop && minimumSuggestionBanner(ctx), // pointless in the evening
+    showCheckin && checkinCard(ctx),
+    shutdownOnTop && shutdownCard(ctx),
+    nowCard(ctx),
     modeCard(ctx),
     mode !== 'sick' && minimumCard(ctx),
     sleepCard(ctx),
     mode !== 'sick' && applicationsCard(ctx),
     mode !== 'sick' && drivingCard(ctx),
     timelineCard(ctx),
-    noteCard(ctx),
+    shutdownOpen && !shutdownOnTop ? shutdownCard(ctx) : !shutdownOnTop && noteCard(ctx),
+    !shutdownOpen && h('button', {
+      class: 'btn btn--block btn--ghost',
+      onclick: () => { openEarly.add(dayKey); ctx.edit(() => {}); },
+    }, 'Закрыть день'),
   ].filter(Boolean);
 
-  return { nodes, schedule };
+  return nodes;
 }
 
 // ---------- banners ----------
@@ -117,10 +129,14 @@ function backupBanner(data, dayKey) {
   );
 }
 
-function lateNightBanner({ settings, days, dayKey, edit }) {
-  if (!shouldSuggestMinimum(dayKey, days, settings)) return null;
+function minimumSuggestionBanner({ settings, days, dayKey, edit }) {
+  const reason = minimumSuggestionReason(dayKey, days, settings);
+  if (!reason) return null;
+  const why = reason === 'late-bed'
+    ? `Вчера лёг позже ${settings.lateBedThreshold}.`
+    : 'Сон или энергия сегодня на 2 из 5 и ниже.';
   return h('div', { class: 'banner banner--warning' },
-    h('p', {}, `Вчера лёг позже ${settings.lateBedThreshold}. Включить сегодня режим «минимум»?`),
+    h('p', {}, `${why} Включить сегодня режим «минимум»?`),
     h('div', { class: 'banner__actions' },
       h('button', { class: 'btn btn--primary', onclick: () => edit((d) => { d.mode = 'minimum'; }) }, 'Включить'),
       h('button', { class: 'btn', onclick: () => edit((d) => { d.minimumSuggestionDismissed = true; }) }, 'Нет, обычный'),
@@ -130,9 +146,11 @@ function lateNightBanner({ settings, days, dayKey, edit }) {
 
 // ---------- mode ----------
 
-function modeCard({ dayKey, mode, edit }) {
+function modeCard(ctx) {
+  const { dayKey, mode, edit } = ctx;
   return h('section', { class: 'card' },
     h('p', { class: 'day-label' }, formatDayLabel(dayKey)),
+    checkinSummary(ctx),
     h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Режим дня' },
       MODES.map(([value, label]) => h('button', {
         class: 'segmented__item',
@@ -360,14 +378,6 @@ function blockItem(block, tasks, isCurrent, day, edit) {
   );
 }
 
-function highlightCurrent(root, schedule, minutes) {
-  if (!schedule) return;
-  const current = findCurrentBlock(schedule.blocks, minutes);
-  for (const el of root.querySelectorAll('[data-block-id]')) {
-    el.classList.toggle('is-current', el.dataset.blockId === current?.id);
-  }
-}
-
 // ---------- note ----------
 
 function noteCard({ day, edit }) {
@@ -378,26 +388,6 @@ function noteCard({ day, edit }) {
       // Saved on every keystroke without re-rendering, so the keyboard stays open.
       oninput: (e) => edit((d) => { d.note = e.target.value; }, { notify: false }),
     }, day.note ?? ''),
-  );
-}
-
-// ---------- shared rows ----------
-
-function checkRow({ checked, label, hint = null, disabled = false, nested = false, onChange }) {
-  return h('label', { class: `check${checked ? ' is-done' : ''}${nested ? ' check--nested' : ''}` },
-    h('input', {
-      type: 'checkbox', class: 'check__box', checked, disabled,
-      onchange: (e) => onChange(e.target.checked),
-    }),
-    h('span', { class: 'check__text' }, label, hint && h('small', { class: 'check__hint' }, hint)),
-  );
-}
-
-function statusRow(ok, label, hint) {
-  return h('div', { class: `status-row${ok ? ' is-done' : ''}` },
-    h('span', { class: 'status-row__icon', 'aria-hidden': 'true' }, ok ? '✓' : ''),
-    h('span', { class: 'check__text' }, label, hint && h('small', { class: 'check__hint' }, hint)),
-    h('span', { class: 'visually-hidden' }, ok ? 'выполнено' : 'не выполнено'),
   );
 }
 

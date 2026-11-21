@@ -1074,3 +1074,141 @@ select.input {
   font-size: 22px;
   font-weight: 700;
 }
+
+/* ---------- "Сейчас" card ---------- */
+
+.now-card--active {
+  border-color: var(--accent);
+}
+
+.now-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.now-card__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.now-card__time {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.now-card__title {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.now-card__next {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.now-card__focus {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-weight: 600;
+}
+
+.now-card__focus .now-card__label {
+  margin-bottom: 2px;
+}
+
+.now-card .progress {
+  margin-top: 10px;
+}
+
+/* ---------- Check-in ---------- */
+
+.rating {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.rating__label {
+  font-weight: 600;
+}
+
+.rating__buttons {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.rating__btn {
+  min-height: var(--tap);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 18px;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+
+.rating__btn[aria-checked="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.checkin-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -4px 0 12px;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.link-btn {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 15px;
+  text-decoration: underline;
+  touch-action: manipulation;
+}
+
+/* ---------- Close the day ---------- */
+
+.shutdown__summary {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.shutdown__summary li + li {
+  margin-top: 4px;
+}
+
+.shutdown .segmented--two {
+  grid-template-columns: repeat(2, 1fr);
+  margin-top: 12px;
+}
+
+.shutdown .segmented + .field {
+  margin-top: 12px;
+}
+
+.shutdown .btn--primary {
+  margin-top: 16px;
+}
+
+.shutdown--closed .link-btn {
+  margin-top: 4px;
+}

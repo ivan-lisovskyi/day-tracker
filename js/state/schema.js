@@ -80,7 +80,7 @@ export function migrate(input) {
 // the app crash on start. Valid data passes through unchanged.
 
 const BLOCK_KINDS = new Set(['sleep', 'workout', 'meal', 'focus', 'free', 'evening']);
-const TIME_SETTINGS = ['dayBoundary', 'wakeTarget', 'bedTarget', 'lateBedThreshold'];
+const TIME_SETTINGS = ['dayBoundary', 'wakeTarget', 'bedTarget', 'lateBedThreshold', 'shutdownFrom'];
 const NUMBER_SETTINGS = ['wakeToleranceMin', 'drivingTravelMin', 'weeklyApplicationsGoal'];
 const STAMP_SETTINGS = ['lastBackupAt', 'backupReminderDismissedAt'];
 
@@ -96,6 +96,12 @@ function isTime(value) {
 
 function isStamp(value) {
   return isString(value) && isDateKey(value.slice(0, 10)) && value[10] === 'T' && isTime(value.slice(11, 16));
+}
+
+const isRating = (value) => Number.isInteger(value) && value >= 1 && value <= 5;
+
+function isCheckin(checkin) {
+  return isPlainObject(checkin) && isRating(checkin.sleep) && isRating(checkin.energy);
 }
 
 function isTask(task) {
@@ -137,7 +143,9 @@ function normalizeSettings(input) {
 function normalizeDay(day) {
   const result = { ...day };
   if ('mode' in result && !DAY_MODES.includes(result.mode)) result.mode = 'normal';
-  for (const key of ['wakeAt', 'bedAt']) if (key in result && !isStamp(result[key])) delete result[key];
+  for (const key of ['wakeAt', 'bedAt', 'closedAt']) if (key in result && !isStamp(result[key])) delete result[key];
+  if ('focus' in result && !isString(result.focus)) delete result.focus;
+  if ('checkin' in result && !isCheckin(result.checkin)) delete result.checkin;
   if ('applications' in result && !isCount(result.applications)) result.applications = 0;
   if ('note' in result && !isString(result.note)) result.note = '';
   for (const key of ['done', 'minimum']) if (key in result && !isPlainObject(result[key])) result[key] = {};

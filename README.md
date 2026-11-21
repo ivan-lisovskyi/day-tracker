@@ -66,6 +66,9 @@ npm test           # node --test, no libraries
 - [x] "Week" screen + text export
 - [x] Settings + JSON backup
 - [x] Offline support (service worker, update banner, persistent storage)
+- [x] "Сейчас" card: the current block with time left, its checkboxes and what comes next
+- [x] Morning check-in (sleep and energy 1–5); a low rating suggests minimum mode
+- [x] Evening "close the day": review, a note, and tomorrow's mode, driving lesson and one main thing
 - [ ] Stage 2: "Adjust plan with AI" via a Cloudflare Worker proxy to the Claude API
 
 ## License

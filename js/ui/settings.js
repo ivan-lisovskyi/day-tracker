@@ -80,6 +80,8 @@ function goalsCard(s) {
       (v) => save((d) => { d.weeklyApplicationsGoal = v; })),
     numberField('Дорога на вождение, мин (в одну сторону)', s.drivingTravelMin, 0, 180,
       (v) => save((d) => { d.drivingTravelMin = v; })),
+    timeField('Закрытие дня — с', s.shutdownFrom, (v) => save((d) => { d.shutdownFrom = v; }),
+      'С этого времени карточка «Закрыть день» поднимается наверх экрана «Сегодня».'),
     timeField('Граница суток', s.dayBoundary, (v) => save((d) => { d.dayBoundary = v; }),
       'Всё, что отмечено до этого времени, относится к предыдущему дню.'),
   );

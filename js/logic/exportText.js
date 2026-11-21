@@ -50,6 +50,10 @@ export function weekToText(stats) {
   lines.push(`- Тренировки с гирей: ${t.workoutsDone} из ${t.workoutsPlanned}`);
   lines.push(`- Подъём в среднем: ${t.averageWake ?? 'нет данных'} (цель ${stats.goals.wakeTarget}, допуск ${stats.goals.wakeToleranceMin} мин)`);
   lines.push(`- Отбой в среднем: ${t.averageBed ?? 'нет данных'} (цель ${stats.goals.bedTarget})`);
+  if (t.checkins) {
+    lines.push(`- Самочувствие (чек-инов: ${t.checkins}): сон ${t.averageSleep}/5, энергия ${t.averageEnergy}/5`);
+  }
+  lines.push(`- Дней закрыто вечером: ${t.daysClosed} из ${t.daysElapsed}`);
   if (stats.streaks) lines.push(`- Серия минимума сейчас: ${stats.streaks.minimum} дн.`);
   lines.push('');
 
@@ -80,6 +84,7 @@ function dayLines(day, titles) {
     status,
     day.mode === 'minimum' ? 'режим «минимум»' : null,
     `подъём ${day.wakeAt ?? '—'}, отбой ${day.bedAt ?? '—'}`,
+    day.checkin ? `сон ${day.checkin.sleep}/5, энергия ${day.checkin.energy}/5` : null,
     day.applications ? `откликов ${day.applications}` : null,
     day.drivingLesson ? `вождение ${day.drivingLesson.start}–${day.drivingLesson.end}` : null,
   ].filter(Boolean);
@@ -93,6 +98,7 @@ function dayLines(day, titles) {
   }
 
   const lines = [`${label}${day.isToday ? ' (сегодня)' : ''} — ${facts.join(' | ')}`];
+  if (day.focus) lines.push(`  главное дня: ${day.focus}`);
   if (done.length) lines.push(`  сделано: ${done.join('; ')}`);
   if (missed.length) lines.push(`  ${day.isToday ? 'пока не отмечено' : 'не сделано'}: ${missed.join('; ')}`);
   if (day.note) lines.push(`  заметка: ${day.note.replace(/\s+/g, ' ')}`);

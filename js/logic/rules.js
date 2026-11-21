@@ -108,15 +108,31 @@ export function hasPendingWorkout(dayKey, days, settings, depth = 0) {
 
 // ---------- late night → suggest "minimum" ----------
 
-/** Yesterday's bedtime was later than the threshold and today is still a normal day. */
-export function shouldSuggestMinimum(dayKey, days, settings) {
+/** A check-in value at or below this (sleep or energy, 1–5) suggests a lighter day. */
+const LOW_CHECKIN = 2;
+
+/**
+ * Why today should probably be a "minimum" day, or null:
+ * - 'late-bed': yesterday's bedtime was later than the threshold;
+ * - 'low-checkin': this morning's sleep or energy was rated 2 or lower.
+ * Only for a normal day whose suggestion was not dismissed. It is a suggestion, never automatic.
+ */
+export function minimumSuggestionReason(dayKey, days, settings) {
   const today = days[dayKey];
-  if (today?.mode && today.mode !== 'normal') return false;
-  if (today?.minimumSuggestionDismissed) return false;
+  if (today?.mode && today.mode !== 'normal') return null;
+  if (today?.minimumSuggestionDismissed) return null;
 
   const prevKey = addDays(dayKey, -1);
   const bed = bedMinutes(days[prevKey], prevKey);
-  return bed != null && bed > toDayMinutes(settings.lateBedThreshold, settings.dayBoundary);
+  if (bed != null && bed > toDayMinutes(settings.lateBedThreshold, settings.dayBoundary)) return 'late-bed';
+
+  const checkin = today?.checkin;
+  if (checkin && (checkin.sleep <= LOW_CHECKIN || checkin.energy <= LOW_CHECKIN)) return 'low-checkin';
+  return null;
+}
+
+export function shouldSuggestMinimum(dayKey, days, settings) {
+  return minimumSuggestionReason(dayKey, days, settings) !== null;
 }
 
 // ---------- habits ----------
@@ -128,6 +144,7 @@ export function listHabits(settings) {
     { id: 'bed', title: `Отбой до ${settings.bedTarget}` },
     { id: 'workout', title: settings.workout.title },
     { id: 'stretch', title: settings.workout.restTitle },
+    { id: 'shutdown', title: 'Закрыть день' },
   ];
   for (const block of settings.blocks) {
     for (const task of block.tasks ?? []) {
@@ -156,6 +173,7 @@ export function habitStatus(habitId, dayKey, days, settings) {
   let done;
   if (habitId === 'wake') done = isWakeOnTime(day, dayKey, settings);
   else if (habitId === 'bed') done = isBedOnTime(day, dayKey, settings);
+  else if (habitId === 'shutdown') done = Boolean(day.closedAt);
   else done = day.done?.[habitId] === true;
 
   if (!done && day.mode === 'minimum' && !isSleep) return null;

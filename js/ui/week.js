@@ -82,6 +82,11 @@ function summaryCard({ totals: t, goals, streaks }) {
       h('span', {}, 'Подъём в среднем ', h('strong', {}, t.averageWake ?? '—')),
       h('span', {}, 'Отбой в среднем ', h('strong', {}, t.averageBed ?? '—')),
     ),
+    t.checkins > 0 && h('p', { class: 'week-times' },
+      h('span', {}, 'Сон в среднем ', h('strong', {}, `${t.averageSleep}/5`)),
+      h('span', {}, 'Энергия ', h('strong', {}, `${t.averageEnergy}/5`)),
+    ),
+    h('p', { class: 'week-times' }, h('span', {}, 'Дней закрыто вечером ', h('strong', {}, `${t.daysClosed} из ${t.daysElapsed}`))),
     streaks && h('p', { class: 'streak' },
       `Серия минимума: ${streaks.minimum} ${plural(streaks.minimum, 'день', 'дня', 'дней')}`),
   );
@@ -149,6 +154,7 @@ function dayRow(day) {
       day.applications > 0 && `откликов: ${day.applications}`,
       day.drivingLesson && `вождение ${day.drivingLesson.start}`,
       day.mode === 'minimum' && 'режим «минимум»',
+      day.checkin && `сон ${day.checkin.sleep}, энергия ${day.checkin.energy}`,
     ].filter(Boolean)
     : [];
 
@@ -158,6 +164,7 @@ function dayRow(day) {
       h('span', { class: `pill pill--${modifier}` }, label),
     ),
     facts.length > 0 && h('p', { class: 'day-row__facts' }, facts.join(' · ')),
+    day.focus && h('p', { class: 'day-row__facts' }, `Главное: ${day.focus}`),
     day.note && h('p', { class: 'day-row__note' }, day.note),
   );
 }

@@ -45,6 +45,10 @@ test('weekly totals', () => {
     workoutsDone: 1,
     averageWake: '09:18', // mean of 09:10, 09:40, 09:00, 09:20 = 09:17.5, rounded
     averageBed: '01:00', // 00:50 and 01:10 — averaged across midnight
+    checkins: 0,
+    averageSleep: null,
+    averageEnergy: null,
+    daysClosed: 0,
   });
 });
 
@@ -111,4 +115,31 @@ test('week range label across months and years', () => {
   assert.equal(formatWeekRange('2026-11-16', '2026-11-22'), '16–22 ноября 2026');
   assert.equal(formatWeekRange('2026-11-30', '2026-12-06'), '30 ноября – 6 декабря 2026');
   assert.equal(formatWeekRange('2026-12-28', '2027-01-03'), '28 декабря 2026 – 3 января 2027');
+});
+
+test('check-ins, focus of the day and closed days are in the stats and the export', () => {
+  const data = sampleData();
+  data.days['2026-11-16'].checkin = { sleep: 4, energy: 3 };
+  data.days['2026-11-16'].focus = 'Два отклика';
+  data.days['2026-11-16'].closedAt = '2026-11-16T23:30';
+  data.days['2026-11-17'].checkin = { sleep: 2, energy: 2 };
+
+  const stats = buildWeekStats(data, MONDAY, TODAY);
+  assert.equal(stats.totals.checkins, 2);
+  assert.equal(stats.totals.averageSleep, 3);
+  assert.equal(stats.totals.averageEnergy, 2.5);
+  assert.equal(stats.totals.daysClosed, 1);
+  assert.deepEqual(stats.days[0].checkin, { sleep: 4, energy: 3 });
+  assert.equal(stats.days[0].focus, 'Два отклика');
+  assert.equal(stats.days[0].closed, true);
+
+  const text = weekToText(stats);
+  for (const expected of [
+    '- Самочувствие (чек-инов: 2): сон 3/5, энергия 2.5/5',
+    '- Дней закрыто вечером: 1 из 6',
+    'подъём 09:10, отбой 00:50 | сон 4/5, энергия 3/5',
+    '  главное дня: Два отклика',
+  ]) {
+    assert.ok(text.includes(expected), `missing "${expected}" in:\n${text}`);
+  }
 });
