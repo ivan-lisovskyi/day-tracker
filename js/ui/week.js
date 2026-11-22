@@ -33,7 +33,12 @@ export function render(root) {
     const stats = buildWeekStats(data, monday, todayKey);
 
     root.replaceChildren(
-      navCard(stats, weekOffset, (delta) => { weekOffset += delta; exportState = null; redraw(); }),
+      navCard(stats, weekOffset, (delta) => {
+        weekOffset += delta;
+        exportState = null;
+        if (aiState.status === 'error') aiState = { status: 'idle' }; // that error was about another week
+        redraw();
+      }),
       summaryCard(stats),
       exportCard(stats, exportState, async () => { exportState = await copyWeek(stats); redraw(); }),
       aiCard(stats, data.settings, redraw),

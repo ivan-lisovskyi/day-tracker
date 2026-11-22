@@ -39,3 +39,17 @@ test('errors become messages that can be shown as is', async () => {
     fetch: async () => { throw Object.assign(new Error('timed out'), { name: 'TimeoutError' }); }, config,
   }), /не ответил/);
 });
+
+test('works on browsers without AbortSignal.timeout (iOS before 16)', async () => {
+  const original = AbortSignal.timeout;
+  AbortSignal.timeout = undefined;
+  try {
+    const fetch = async (_url, options) => {
+      assert.equal(options.signal, undefined);
+      return new Response(JSON.stringify({ review: 'Ок', proposals: [] }), { status: 200 });
+    };
+    assert.equal((await requestPlan({ stats: {}, plan: {} }, { fetch, config })).review, 'Ок');
+  } finally {
+    AbortSignal.timeout = original;
+  }
+});

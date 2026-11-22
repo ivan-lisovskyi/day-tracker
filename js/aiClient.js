@@ -37,7 +37,7 @@ export async function requestPlan({ stats, plan }, { fetch: fetchImpl = fetch, c
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.accessCode}` },
       body: JSON.stringify({ stats, plan }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(TIMEOUT_MS) : undefined, // iOS < 16 has none
     });
   } catch (error) {
     throw new Error(error?.name === 'TimeoutError'

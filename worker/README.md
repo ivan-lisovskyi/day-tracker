@@ -31,8 +31,7 @@ npm install
 npx wrangler login                          # opens the browser
 npx wrangler kv namespace create LIMITS     # copy the printed id into wrangler.toml
 npx wrangler secret put ANTHROPIC_API_KEY   # paste the key when asked; it is not echoed
-openssl rand -hex 16                        # a random access code
-npx wrangler secret put ACCESS_CODE         # paste that code
+openssl rand -hex 16 | tee /dev/tty | npx wrangler secret put ACCESS_CODE   # prints the new code once: copy it to the phone
 npx wrangler deploy                         # prints https://day-tracker-ai.<you>.workers.dev
 ```
 
