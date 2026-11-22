@@ -1,0 +1,19 @@
+{
+  "name": "day-tracker-ai",
+  "version": "0.1.0",
+  "description": "Cloudflare Worker: keeps the Claude API key and turns a week of stats into plan proposals",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "wrangler": "^4.166.0"
+  }
+}

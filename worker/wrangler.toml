@@ -1,0 +1,19 @@
+# Cloudflare Worker: the server side of "Подстроить план с ИИ".
+# Secrets are NOT here: set them with `npx wrangler secret put ANTHROPIC_API_KEY` and
+# `npx wrangler secret put ACCESS_CODE`. See README.md in this folder.
+
+name = "day-tracker-ai"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+# Only the published app may call the worker (a local run adds localhost in .dev.vars).
+ALLOWED_ORIGINS = "https://ivan-lisovskyi.github.io"
+# Accepted requests per UTC day, a guard for the API bill.
+DAILY_LIMIT = "20"
+
+# Counter for the daily limit. The id is filled in when the namespace is created:
+#   npx wrangler kv namespace create LIMITS
+[[kv_namespaces]]
+binding = "LIMITS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
