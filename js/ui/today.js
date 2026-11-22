@@ -7,7 +7,7 @@
  */
 import { createRenderer, h } from './dom.js';
 import { formatDayLabel, formatDuration, formatRange, plural } from './format.js';
-import { checkRow, statusRow, taskRow } from './rows.js';
+import { checkRow, statusRow, taskRow, workoutGoalLine } from './rows.js';
 import { forgivenNote } from '../logic/exportText.js';
 import { nowCard } from './nowCard.js';
 import { checkinCard, checkinSummary, isCheckinEditing } from './checkin.js';
@@ -19,7 +19,8 @@ import {
 } from '../logic/time.js';
 import { buildDaySchedule, findCurrentBlock } from '../logic/schedule.js';
 import {
-  bedDayKeyFor, bedStampFor, hasPendingWorkout, isBedOnTime, minimumStatus, minimumSuggestionReason, wakeStampFor,
+  bedDayKeyFor, bedStampFor, hasPendingWorkout, isBedOnTime, isWorkoutPlanned, minimumStatus, minimumSuggestionReason,
+  wakeStampFor,
 } from '../logic/rules.js';
 import { minimumStreak } from '../logic/streaks.js';
 import { shouldRemindBackup } from '../logic/backup.js';
@@ -72,7 +73,9 @@ function buildScreen(data, dayKey, now, redraw) {
   const day = days[dayKey] ?? createDay();
   const mode = day.mode ?? 'normal';
   const schedule = buildDaySchedule({
-    settings, dayKey, day, pendingWorkout: hasPendingWorkout(dayKey, days, settings),
+    settings, dayKey, day,
+    pendingWorkout: hasPendingWorkout(dayKey, days, settings),
+    workoutPlanned: isWorkoutPlanned(dayKey, days, settings), // knows the weekly goal and today's choice
   });
   const nowMinutes = nowDayMinutes(now, settings.dayBoundary);
   const setExpanded = (open) => {
@@ -345,7 +348,8 @@ function defaultLesson(now) {
 
 // ---------- timeline ----------
 
-function timelineCard({ day, mode, schedule, nowMinutes, edit }) {
+function timelineCard(ctx) {
+  const { day, mode, schedule, nowMinutes, edit } = ctx;
   const current = findCurrentBlock(schedule.blocks, nowMinutes);
   const renderedTasks = new Set(); // a block split by a lesson shows its checkbox only once
 
@@ -355,13 +359,13 @@ function timelineCard({ day, mode, schedule, nowMinutes, edit }) {
       schedule.blocks.map((block) => {
         const tasks = block.tasks.filter((t) => !renderedTasks.has(t.id));
         tasks.forEach((t) => renderedTasks.add(t.id));
-        return blockItem(block, tasks, block === current, day, edit);
+        return blockItem(block, tasks, block === current, day, edit, block.kind === 'workout' && workoutGoalLine(ctx));
       }),
     ),
   );
 }
 
-function blockItem(block, tasks, isCurrent, day, edit) {
+function blockItem(block, tasks, isCurrent, day, edit, footer) {
   const classes = ['block', `block--${block.kind}`];
   if (isCurrent) classes.push('is-current');
   if (block.start === block.end) classes.push('block--marker');
@@ -382,6 +386,7 @@ function blockItem(block, tasks, isCurrent, day, edit) {
     chips.length > 0 && h('div', { class: 'block__chips' }, chips),
     block.details && h('p', { class: 'block__details' }, block.details),
     tasks.map((task) => taskRow(task, day, edit)),
+    footer,
   );
 }
 

@@ -19,12 +19,14 @@ export function isWorkoutDay(dayKey, settings) {
  * @param {string} p.dayKey          "YYYY-MM-DD"
  * @param {object} [p.day]           the day record (mode, drivingLesson, …)
  * @param {boolean} [p.pendingWorkout] a missed workout carried over from yesterday
+ * @param {boolean} [p.workoutPlanned] is today a workout day (rules.isWorkoutPlanned: it knows the weekly
+ *   goal and the choice made for the day); by default the fixed weekdays plus the carry-over decide
  * @returns {{ blocks: object[], unplaced: object[], workoutToday: boolean }}
  *   unplaced — parts of blocks that a driving lesson displaced and no free time could fit
  */
-export function buildDaySchedule({ settings, dayKey, day = {}, pendingWorkout = false }) {
+export function buildDaySchedule({ settings, dayKey, day = {}, pendingWorkout = false, workoutPlanned }) {
   const regularWorkout = isWorkoutDay(dayKey, settings);
-  const workoutToday = regularWorkout || pendingWorkout;
+  const workoutToday = workoutPlanned ?? (regularWorkout || pendingWorkout);
 
   let blocks = expandTemplate(settings, { workoutToday, carriedOver: pendingWorkout && !regularWorkout });
   let unplaced = [];

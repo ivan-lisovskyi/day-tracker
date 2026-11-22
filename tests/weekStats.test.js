@@ -204,3 +204,15 @@ test('forgiven note: Russian plural forms, empty when nothing was forgiven', () 
   assert.equal(forgivenNote(2, ' · '), ' · 2 срыва прощено');
   assert.equal(forgivenNote(5), '5 срывов прощено');
 });
+
+test('weekly workout goal: the goal is the denominator, in the stats and in the export', () => {
+  const data = sampleData();
+  data.settings.workoutMode = 'weekly';
+  data.settings.workoutsPerWeek = 4;
+  const stats = buildWeekStats(data, MONDAY, TODAY);
+
+  assert.equal(stats.goals.workoutsPerWeek, 4);
+  assert.equal(stats.totals.workoutsPlanned, 4);
+  assert.equal(stats.totals.workoutsDone, 1); // Monday
+  assert.ok(weekToText(stats).includes('- Тренировки с гирей: 1 из 4 (цель: 4 раза в неделю)'));
+});

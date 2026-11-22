@@ -106,3 +106,20 @@ test('a broken "skipped" map is dropped, a valid one is kept', () => {
   assert.equal('skipped' in result.days['2026-11-20'], false);
   assert.deepEqual(result.days['2026-11-21'].skipped, { walk: true });
 });
+
+test('workout goal settings and the choice for a day are validated', () => {
+  const data = createInitialData();
+  assert.equal(data.settings.workoutMode, 'days');
+  assert.equal(data.settings.workoutsPerWeek, 3);
+
+  data.settings.workoutMode = 'sometimes';
+  data.settings.workoutsPerWeek = 0;
+  data.days['2026-11-20'] = { workoutChoice: 'run' };
+  data.days['2026-11-21'] = { workoutChoice: 'stretch' };
+
+  const result = migrate(data);
+  assert.equal(result.settings.workoutMode, 'days');
+  assert.equal(result.settings.workoutsPerWeek, 3);
+  assert.equal('workoutChoice' in result.days['2026-11-20'], false);
+  assert.equal(result.days['2026-11-21'].workoutChoice, 'stretch');
+});

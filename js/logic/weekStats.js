@@ -7,11 +7,12 @@
  */
 import { formatMinutes, isoWeekday, stampTime, weekKeys } from './time.js';
 import {
-  bedMinutes, habitStatus, isDayCounted, isSkipped, isWorkoutPlanned, listHabits, minimumStatus, wakeMinutes,
+  bedMinutes, habitStatus, isDayCounted, isSkipped, isWeeklyWorkoutGoal, isWorkoutPlanned, listHabits, minimumStatus,
+  wakeMinutes,
 } from './rules.js';
 import { habitStreak, minimumStreak } from './streaks.js';
 
-export const WEEK_STATS_VERSION = 3; // v3: skipped tasks, forgiven misses in streaks
+export const WEEK_STATS_VERSION = 4; // v4: workout goal per week (goals.workoutMode, goals.workoutsPerWeek)
 
 /**
  * @param {object} data      { settings, days }
@@ -46,6 +47,8 @@ export function buildWeekStats(data, mondayKey, todayKey) {
       wakeToleranceMin: settings.wakeToleranceMin,
       bedTarget: settings.bedTarget,
       workoutDays: settings.workoutDays,
+      workoutMode: settings.workoutMode,
+      workoutsPerWeek: isWeeklyWorkoutGoal(settings) ? settings.workoutsPerWeek : null,
     },
     totals: {
       daysElapsed: past.length,
@@ -54,7 +57,9 @@ export function buildWeekStats(data, mondayKey, todayKey) {
       minimumModeDays: past.filter((d) => d.mode === 'minimum').length,
       applications: dayStats.reduce((sum, d) => sum + d.applications, 0),
       drivingLessons: past.filter((d) => d.drivingLesson).length,
-      workoutsPlanned: past.filter((d) => d.habits.workout !== null).length,
+      workoutsPlanned: isWeeklyWorkoutGoal(settings)
+        ? settings.workoutsPerWeek // the goal for the whole week
+        : past.filter((d) => d.habits.workout !== null).length,
       workoutsDone: past.filter((d) => d.habits.workout === true).length,
       averageWake: average(wakeTimes),
       averageBed: average(bedTimes),

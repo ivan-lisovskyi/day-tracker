@@ -103,24 +103,39 @@ function goalsCard(s) {
 
 // ---------- workouts ----------
 
+const WORKOUT_MODES = [['days', 'По дням недели'], ['weekly', 'Раз в неделю']];
+
 function workoutCard(s) {
   const w = s.workout;
   const setWorkout = (mutator) => save((d) => mutator(d.workout));
 
   return h('section', { class: 'card' },
     h('h2', { class: 'card__title' }, 'Тренировки'),
-    h('p', { class: 'field-label' }, 'Дни с гирей'),
-    h('div', { class: 'weekday-picker' },
-      WEEKDAYS.map((label, i) => {
-        const day = i + 1;
-        const isOn = s.workoutDays.includes(day);
-        return h('button', {
-          class: 'weekday-picker__day', 'aria-pressed': String(isOn),
-          onclick: () => save((d) => {
-            d.workoutDays = isOn ? d.workoutDays.filter((x) => x !== day) : [...d.workoutDays, day].sort((x, y) => x - y);
-          }),
-        }, label);
-      })),
+    h('div', { class: 'segmented segmented--two', role: 'radiogroup', 'aria-label': 'Когда тренировка' },
+      WORKOUT_MODES.map(([value, label]) => h('button', {
+        class: 'segmented__item', role: 'radio', 'aria-checked': String(s.workoutMode === value),
+        onclick: () => save((d) => { d.workoutMode = value; }),
+      }, label))),
+    s.workoutMode === 'weekly'
+      ? [
+        numberField('Сколько раз в неделю', s.workoutsPerWeek, 1, 7, (v) => save((d) => { d.workoutsPerWeek = v; })),
+        h('p', { class: 'muted hint' },
+          'Дни выбираешь сам. Приложение предлагает тренировку, пока цель недели не закрыта, и день отдыха после неё; план на сегодня меняется ссылкой в блоке.'),
+      ]
+      : [
+        h('p', { class: 'field-label' }, 'Дни с гирей'),
+        h('div', { class: 'weekday-picker' },
+          WEEKDAYS.map((label, i) => {
+            const day = i + 1;
+            const isOn = s.workoutDays.includes(day);
+            return h('button', {
+              class: 'weekday-picker__day', 'aria-pressed': String(isOn),
+              onclick: () => save((d) => {
+                d.workoutDays = isOn ? d.workoutDays.filter((x) => x !== day) : [...d.workoutDays, day].sort((x, y) => x - y);
+              }),
+            }, label);
+          })),
+      ],
     textField('Тренировка', w.title, (v) => setWorkout((x) => { x.title = v; })),
     textField('Упражнения', w.details, (v) => setWorkout((x) => { x.details = v; }), { multiline: true, allowEmpty: true }),
     numberField('Длительность, мин', w.durationMin, 5, 120, (v) => setWorkout((x) => { x.durationMin = v; })),

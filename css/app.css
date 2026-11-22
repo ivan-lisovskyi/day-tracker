@@ -1228,8 +1228,32 @@ select.input {
   margin-top: 4px;
 }
 
-.shutdown .segmented--two {
+.segmented--two {
   grid-template-columns: repeat(2, 1fr);
+}
+
+.shutdown .segmented--two {
+  margin-top: 12px;
+}
+
+/* Weekly workout goal: progress of the week and the "сегодня растяжка / гиря" swap link. */
+.workout-goal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.workout-goal .link-btn {
+  white-space: nowrap;
+}
+
+.segmented--two + .field,
+.segmented--two + .field-label {
   margin-top: 12px;
 }
 
@@ -1252,4 +1276,9 @@ select.input {
 /* While "Доступно обновление" is shown, the last control of a screen stays reachable above it. */
 .has-update-banner .screen {
   padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--pad) + 84px);
+}
+
+/* A hint between two fields (settings) keeps the usual gap before the next field. */
+.card > .hint + .field {
+  margin-top: 12px;
 }

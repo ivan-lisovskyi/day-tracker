@@ -26,6 +26,8 @@ import { createDefaultSettings } from './defaults.js';
 
 /** Day modes (kept here, not imported from logic, so the data layer has no dependencies). */
 const DAY_MODES = ['normal', 'minimum', 'sick'];
+const WORKOUT_MODES = ['days', 'weekly'];
+const WORKOUT_CHOICES = ['workout', 'stretch'];
 
 export const SCHEMA_VERSION = 1;
 
@@ -129,6 +131,11 @@ function normalizeSettings(input) {
     ? settings.workoutDays.filter((day) => Number.isInteger(day) && day >= 1 && day <= 7)
     : defaults.workoutDays;
 
+  if (!WORKOUT_MODES.includes(result.workoutMode)) result.workoutMode = defaults.workoutMode;
+  if (!Number.isInteger(result.workoutsPerWeek) || result.workoutsPerWeek < 1 || result.workoutsPerWeek > 7) {
+    result.workoutsPerWeek = defaults.workoutsPerWeek;
+  }
+
   const workout = { ...defaults.workout, ...(isPlainObject(settings.workout) ? settings.workout : {}) };
   for (const key of ['title', 'restTitle', 'details', 'restDetails']) {
     if (!isString(workout[key])) workout[key] = defaults.workout[key];
@@ -154,6 +161,7 @@ function normalizeDay(day) {
   if ('note' in result && !isString(result.note)) result.note = '';
   for (const key of ['done', 'minimum']) if (key in result && !isPlainObject(result[key])) result[key] = {};
   if ('skipped' in result && !isPlainObject(result.skipped)) delete result.skipped;
+  if ('workoutChoice' in result && !WORKOUT_CHOICES.includes(result.workoutChoice)) delete result.workoutChoice;
   if ('drivingLesson' in result && result.drivingLesson !== null) {
     const lesson = result.drivingLesson;
     if (!isPlainObject(lesson) || !isTime(lesson.start) || !isTime(lesson.end)) result.drivingLesson = null;

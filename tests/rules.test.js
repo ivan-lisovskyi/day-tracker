@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   bedDayKeyFor, bedStampFor, habitStatus, hasPendingWorkout, isBedOnTime, isDayCounted, isWorkoutPlanned,
-  listHabits, minimumStatus, minimumSuggestionReason, shouldSuggestMinimum, wakeStampFor,
+  listHabits, minimumStatus, minimumSuggestionReason, shouldSuggestMinimum, wakeStampFor, weeklyWorkoutProgress,
 } from '../js/logic/rules.js';
 import { createDefaultSettings } from '../js/state/defaults.js';
 
@@ -171,4 +171,67 @@ test('a skipped task is neutral unless it was done after all; a skipped workout 
   assert.equal(habitStatus('workout', FRIDAY, days, settings), null);
   assert.equal(habitStatus('walk', SATURDAY, days, settings), true); // done wins
   assert.equal(hasPendingWorkout(SATURDAY, days, settings), false);
+});
+
+// ---------- workout goal "N times a week" ----------
+
+const weekly = { ...createDefaultSettings(), workoutMode: 'weekly', workoutsPerWeek: 3 };
+const W = ['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-29']; // Mon…Sun
+const trained = { done: { workout: true } };
+
+test('weekly goal: a workout is offered until the goal is met, with a rest day after each one', () => {
+  assert.equal(isWorkoutPlanned(W[0], {}, weekly), true); // Monday, nothing done yet
+
+  const days = { [W[0]]: trained };
+  assert.equal(isWorkoutPlanned(W[0], days, weekly), true); // done → a workout day
+  assert.equal(isWorkoutPlanned(W[1], days, weekly), false); // Tue: rest
+  assert.equal(isWorkoutPlanned(W[2], days, weekly), true); // Wed
+
+  const met = { [W[0]]: trained, [W[2]]: trained, [W[4]]: trained };
+  assert.equal(isWorkoutPlanned(W[5], met, weekly), false); // goal met → stretching
+  assert.equal(isWorkoutPlanned(W[6], met, weekly), false);
+});
+
+test('weekly goal: no rest day when the remaining days are all needed; nothing is carried over', () => {
+  const days = { [W[3]]: trained }; // only Thursday so far
+  assert.equal(isWorkoutPlanned(W[4], days, weekly), false); // Fri: 2 needed, 3 days left → rest
+  assert.equal(isWorkoutPlanned(W[5], days, weekly), true); // Sat: 2 needed, 2 left → no room for rest
+
+  const sat = { ...days, [W[5]]: trained };
+  assert.equal(isWorkoutPlanned(W[6], sat, weekly), true); // Sun, right after Saturday's workout
+  assert.equal(hasPendingWorkout(W[1], { [W[0]]: { done: {} } }, weekly), false);
+});
+
+test('weekly goal: Sunday workout makes Monday a rest day, and the count starts again', () => {
+  const days = { '2026-11-22': trained };
+  assert.equal(isWorkoutPlanned(W[0], days, weekly), false);
+  assert.equal(isWorkoutPlanned(W[1], days, weekly), true);
+});
+
+test('weekly goal: the choice for the day wins over the suggestion', () => {
+  const days = { [W[0]]: trained, [W[1]]: { done: {}, workoutChoice: 'workout' }, [W[2]]: { done: {}, workoutChoice: 'stretch' } };
+  assert.equal(isWorkoutPlanned(W[1], days, weekly), true);
+  assert.equal(isWorkoutPlanned(W[2], days, weekly), false);
+});
+
+test('weekly goal: a day without a workout is a miss only when the goal can no longer wait', () => {
+  const days = { [W[0]]: { done: {} }, [W[1]]: { done: {} }, [W[4]]: { done: {} }, [W[5]]: trained };
+  assert.equal(habitStatus('workout', W[0], days, weekly), null); // Mon: plenty of time
+  assert.equal(habitStatus('workout', W[3], days, weekly), null); // Thu, no record: 3 needed, 4 days left
+  assert.equal(habitStatus('workout', W[4], days, weekly), false); // Fri: 3 needed, 3 left → had to
+  assert.equal(habitStatus('workout', W[5], days, weekly), true);
+  assert.equal(habitStatus('workout', W[6], days, weekly), false); // Sun, no record: still owed
+});
+
+test('weekly goal: stretching counts only on days planned for it', () => {
+  const days = { [W[0]]: trained, [W[1]]: { done: {} }, [W[2]]: { done: {} } };
+  assert.equal(habitStatus('stretch', W[1], days, weekly), false); // rest day, not stretched
+  assert.equal(habitStatus('stretch', W[2], days, weekly), null); // a workout was offered
+  assert.equal(habitStatus('stretch', W[0], days, weekly), null);
+});
+
+test('weekly goal: progress of the week up to a day', () => {
+  const days = { [W[0]]: trained, [W[2]]: trained, '2026-11-22': trained };
+  assert.deepEqual(weeklyWorkoutProgress(W[2], days, weekly), { done: 2, goal: 3 });
+  assert.deepEqual(weeklyWorkoutProgress(W[1], days, weekly), { done: 1, goal: 3 });
 });

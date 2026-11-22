@@ -24,7 +24,9 @@ export function createDefaultSettings() {
     lateBedThreshold: '02:00',
     drivingTravelMin: 30,
     weeklyApplicationsGoal: 5,
-    workoutDays: [1, 3, 5], // Mon, Wed, Fri (ISO weekdays)
+    workoutDays: [1, 3, 5], // Mon, Wed, Fri (ISO weekdays); used when workoutMode is 'days'
+    workoutMode: 'days', // 'days' = fixed weekdays, 'weekly' = workoutsPerWeek times on any days
+    workoutsPerWeek: 3,
 
     workout: {
       title: 'Гиря 12 кг',

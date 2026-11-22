@@ -47,7 +47,9 @@ export function weekToText(stats) {
     + `${t.sickDays ? ` (болел: ${t.sickDays})` : ''}${t.minimumModeDays ? `, дней в режиме «минимум»: ${t.minimumModeDays}` : ''}`);
   lines.push(`- Отклики на работу: ${t.applications} из ${stats.goals.weeklyApplications}`);
   lines.push(`- Уроков вождения: ${t.drivingLessons}`);
-  lines.push(`- Тренировки с гирей: ${t.workoutsDone} из ${t.workoutsPlanned}`);
+  const perWeek = stats.goals.workoutsPerWeek;
+  lines.push(`- Тренировки с гирей: ${t.workoutsDone} из ${t.workoutsPlanned}`
+    + `${perWeek ? ` (цель: ${perWeek} ${timesWord(perWeek)} в неделю)` : ''}`);
   lines.push(`- Подъём в среднем: ${t.averageWake ?? 'нет данных'} (цель ${stats.goals.wakeTarget}, допуск ${stats.goals.wakeToleranceMin} мин)`);
   lines.push(`- Отбой в среднем: ${t.averageBed ?? 'нет данных'} (цель ${stats.goals.bedTarget})`);
   if (t.checkins) {
@@ -77,6 +79,13 @@ export function weekToText(stats) {
   }
 
   return lines.join('\n');
+}
+
+/** "раз" / "раза": 1 раз, 3 раза, 5 раз. */
+export function timesWord(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  return mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'раза' : 'раз';
 }
 
 /** "1 срыв прощён" / "2 срыва прощено", wrapped in `before`/`after`; empty when nothing was forgiven. */

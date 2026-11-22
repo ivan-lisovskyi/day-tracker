@@ -149,3 +149,10 @@ test('sick mode ignores a planned lesson: no conflict marks on the sleep routine
   assert.equal(blocks.some((b) => b.conflict), false);
   assert.deepEqual(unplaced, []);
 });
+
+test('the caller can decide whether today is a workout day (weekly goal mode)', () => {
+  const tuesday = buildDaySchedule({ settings, dayKey: TUESDAY, workoutPlanned: true });
+  assert.equal(byId(tuesday.blocks, 'workout').title, 'Гиря 12 кг');
+  const monday = buildDaySchedule({ settings, dayKey: MONDAY, workoutPlanned: false });
+  assert.equal(byId(monday.blocks, 'workout').title, 'Растяжка');
+});

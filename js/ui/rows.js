@@ -1,6 +1,6 @@
 /** Shared rows: a big tappable checkbox row, a read-only status row and a schedule task row. */
 import { h } from './dom.js';
-import { isSkipped } from '../logic/rules.js';
+import { isSkipped, isWeeklyWorkoutGoal, isWorkoutPlanned, weeklyWorkoutProgress } from '../logic/rules.js';
 
 export function checkRow({ checked, label, hint = null, disabled = false, nested = false, onChange }) {
   return h('label', { class: `check${checked ? ' is-done' : ''}${nested ? ' check--nested' : ''}` },
@@ -67,5 +67,25 @@ export function taskRow(task, day, edit) {
       class: 'link-btn link-btn--quiet', 'aria-label': `Пропустить сегодня: ${task.title}`,
       onclick: () => edit((d) => { (d.skipped ??= {})[task.id] = true; }),
     }, 'пропустить'),
+  );
+}
+
+/**
+ * Workout goal "N times a week": the week's progress and a link that swaps today's plan
+ * (workout ↔ stretching). Shown in the workout block; null in fixed-weekday mode.
+ */
+export function workoutGoalLine({ settings, days, dayKey, day, edit }) {
+  if (!isWeeklyWorkoutGoal(settings)) return null;
+  const { done, goal } = weeklyWorkoutProgress(dayKey, days, settings);
+  const planned = isWorkoutPlanned(dayKey, days, settings);
+  // Short link text: the first word of the other activity's title ("гиря", "растяжка").
+  const other = (planned ? settings.workout.restTitle : settings.workout.title).trim().split(/\s+/)[0].toLowerCase();
+
+  return h('p', { class: 'workout-goal' },
+    h('span', {}, `За неделю: ${done} из ${goal}`),
+    !day.done?.workout && h('button', {
+      class: 'link-btn',
+      onclick: () => edit((d) => { d.workoutChoice = planned ? 'stretch' : 'workout'; }),
+    }, `сегодня ${other}`),
   );
 }

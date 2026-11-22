@@ -3,7 +3,9 @@
  * the "late night → suggest minimum mode" hint and per-habit status.
  * Pure functions over (dayKey, days, settings).
  */
-import { addDays, formatMinutes, localDateKey, stampToDayMinutes, toDayMinutes, toMinutes } from './time.js';
+import {
+  addDays, daysBetween, formatMinutes, localDateKey, stampToDayMinutes, toDayMinutes, toMinutes, weekStart,
+} from './time.js';
 import { isWorkoutDay } from './schedule.js';
 
 export const DAY_MODES = ['normal', 'minimum', 'sick'];
@@ -87,17 +89,68 @@ export function isDayCounted(day, dayKey, settings) {
 
 // ---------- workout carry-over ----------
 
-/** Is a kettlebell workout planned for this day (regular day or carried over)? */
+/**
+ * Is this a kettlebell day?
+ * - fixed weekdays: a regular workout day, or a missed workout carried over from yesterday;
+ * - weekly goal ("N times a week"): see weeklyWorkoutPlanned.
+ */
 export function isWorkoutPlanned(dayKey, days, settings, depth = 0) {
+  if (isWeeklyWorkoutGoal(settings)) return weeklyWorkoutPlanned(dayKey, days, settings);
   return isWorkoutDay(dayKey, settings) || hasPendingWorkout(dayKey, days, settings, depth);
+}
+
+// ---------- workout goal "N times a week" ----------
+
+export const isWeeklyWorkoutGoal = (settings) => settings.workoutMode === 'weekly';
+
+const workoutDone = (day) => day?.done?.workout === true;
+
+/** Workouts still owed this week before `dayKey`, and how many days are left (that day included). */
+function weeklyWorkoutNeed(dayKey, days, settings) {
+  const monday = weekStart(dayKey);
+  const index = daysBetween(monday, dayKey); // 0 = Monday
+  let done = 0;
+  for (let i = 0; i < index; i++) if (workoutDone(days[addDays(monday, i)])) done += 1;
+  return { need: settings.workoutsPerWeek - done, daysLeft: 7 - index };
+}
+
+/** The goal can only be met by training on every remaining day: skipping this one is a miss. */
+function isWorkoutMustDo(dayKey, days, settings) {
+  const { need, daysLeft } = weeklyWorkoutNeed(dayKey, days, settings);
+  return need > 0 && need >= daysLeft;
+}
+
+/**
+ * Weekly goal: what the day is for. A workout that was done, or the choice made for the day,
+ * settles it. Otherwise a workout is offered until the goal is met, except on the day right
+ * after a workout (rest) — unless every remaining day is needed.
+ */
+function weeklyWorkoutPlanned(dayKey, days, settings) {
+  const day = days[dayKey];
+  if (workoutDone(day)) return true;
+  if (day?.workoutChoice) return day.workoutChoice === 'workout';
+
+  const { need, daysLeft } = weeklyWorkoutNeed(dayKey, days, settings);
+  if (need <= 0) return false;
+  if (need >= daysLeft) return true;
+  return !workoutDone(days[addDays(dayKey, -1)]);
+}
+
+/** Workouts done this week up to and including `dayKey`, against the goal. */
+export function weeklyWorkoutProgress(dayKey, days, settings) {
+  const { need } = weeklyWorkoutNeed(dayKey, days, settings);
+  const done = settings.workoutsPerWeek - need + (workoutDone(days[dayKey]) ? 1 : 0);
+  return { done, goal: settings.workoutsPerWeek };
 }
 
 /**
  * A workout planned yesterday but not done moves to today. It never stacks: there is
  * at most one pending workout, and on a regular workout day it simply merges in.
  * Nothing is carried over from a sick day or from a day with no record (app not opened).
+ * Fixed-weekday mode only.
  */
 export function hasPendingWorkout(dayKey, days, settings, depth = 0) {
+  if (isWeeklyWorkoutGoal(settings)) return false; // the week absorbs a missed day
   if (depth >= MAX_CARRY_DEPTH) return false;
   const prevKey = addDays(dayKey, -1);
   const prev = days[prevKey];
@@ -168,12 +221,19 @@ export function isSkipped(day, habitId) {
  * - sick days: only sleep habits can be done, and nothing counts as missed;
  * - minimum days: undone non-sleep habits are neutral;
  * - a skipped task is neutral;
- * - workout/stretch: only on the days they are planned.
+ * - workout/stretch: only on the days they are planned; with a weekly goal a missing workout
+ *   counts only on the last days of the week, when every remaining day is needed.
  */
 export function habitStatus(habitId, dayKey, days, settings) {
   const day = days[dayKey];
 
-  if (habitId === 'workout' && !isWorkoutPlanned(dayKey, days, settings)) return null;
+  if (habitId === 'workout') {
+    // Weekly goal: a day without a workout is neutral until the goal can no longer wait.
+    const applies = isWeeklyWorkoutGoal(settings)
+      ? workoutDone(day) || isWorkoutMustDo(dayKey, days, settings)
+      : isWorkoutPlanned(dayKey, days, settings);
+    if (!applies) return null;
+  }
   if (habitId === 'stretch' && isWorkoutPlanned(dayKey, days, settings)) return null;
   if (!day) return false;
 

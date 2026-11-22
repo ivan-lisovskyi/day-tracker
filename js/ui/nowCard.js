@@ -3,12 +3,12 @@
  * and its checkboxes, plus what comes next — so the day's main action needs no scrolling.
  */
 import { h } from './dom.js';
-import { taskRow } from './rows.js';
+import { taskRow, workoutGoalLine } from './rows.js';
 import { formatDuration, formatRange } from './format.js';
 import { formatMinutes } from '../logic/time.js';
 import { nowAndNext } from '../logic/schedule.js';
 
-export function nowCard({ day, schedule, nowMinutes, edit }) {
+export function nowCard({ settings, days, dayKey, day, schedule, nowMinutes, edit }) {
   const { current, next, remainingMin, progress } = nowAndNext(schedule.blocks, nowMinutes);
   const focus = day.focus && h('p', { class: 'now-card__focus' },
     h('span', { class: 'now-card__label' }, 'Главное сегодня'), day.focus);
@@ -49,6 +49,7 @@ export function nowCard({ day, schedule, nowMinutes, edit }) {
     }, h('div', { class: 'progress__bar', style: `width: ${Math.round(progress * 100)}%` })),
     h('p', { class: 'muted hint' }, `Осталось ${formatDuration(remainingMin)}`),
     current.tasks.map((task) => taskRow(task, day, edit)),
+    current.kind === 'workout' && workoutGoalLine({ settings, days, dayKey, day, edit }),
     nextLine,
   );
 }
