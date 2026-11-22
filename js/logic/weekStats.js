@@ -16,14 +16,17 @@ export const WEEK_STATS_VERSION = 2; // v2: check-ins, focus of the day, closed 
 /**
  * @param {object} data      { settings, days }
  * @param {string} mondayKey first day of the week
- * @param {string} todayKey  days after it are "future" and not evaluated
+ * @param {string} todayKey  days after it are "future" and not evaluated;
+ *                           neither are days before the first record in `days`
  */
 export function buildWeekStats(data, mondayKey, todayKey) {
   const { settings, days } = data;
   const habits = listHabits(settings);
   const keys = weekKeys(mondayKey);
-  const dayStats = keys.map((key) => buildDay(key, days, settings, habits, todayKey));
-  const past = dayStats.filter((d) => !d.isFuture);
+  // Days before the first record ever made (before the app was installed) are not misses.
+  const firstKey = Object.keys(days).concat(todayKey).sort()[0];
+  const dayStats = keys.map((key) => buildDay(key, days, settings, habits, todayKey, firstKey));
+  const past = dayStats.filter((d) => !d.isFuture && !d.isBeforeStart);
 
   const wakeTimes = past.map((d) => wakeMinutes(days[d.date], d.date)).filter((m) => m != null);
   const bedTimes = past.map((d) => bedMinutes(days[d.date], d.date)).filter((m) => m != null);
@@ -76,25 +79,28 @@ export function buildWeekStats(data, mondayKey, todayKey) {
   };
 }
 
-function buildDay(key, days, settings, habits, todayKey) {
+function buildDay(key, days, settings, habits, todayKey, firstKey) {
   const day = days[key];
   const isFuture = key > todayKey; // ISO dates compare correctly as strings
+  const isBeforeStart = key < firstKey;
+  const skipped = isFuture || isBeforeStart; // not evaluated
 
   return {
     date: key,
     weekday: isoWeekday(key),
     isToday: key === todayKey,
     isFuture,
+    isBeforeStart,
     hasRecord: Boolean(day),
     mode: day?.mode ?? null,
-    counted: isFuture ? null : isDayCounted(day, key, settings),
+    counted: skipped ? null : isDayCounted(day, key, settings),
     minimum: day ? minimumStatus(day, key, settings) : null,
     wakeAt: day?.wakeAt ? stampTime(day.wakeAt) : null,
     bedAt: day?.bedAt ? stampTime(day.bedAt) : null,
     applications: day?.applications ?? 0,
-    drivingLesson: day?.drivingLesson ?? null,
+    drivingLesson: day?.mode === 'sick' ? null : day?.drivingLesson ?? null, // no lesson while sick
     workout: isWorkoutPlanned(key, days, settings) ? 'workout' : 'stretch',
-    habits: Object.fromEntries(habits.map((h) => [h.id, isFuture ? null : habitStatus(h.id, key, days, settings)])),
+    habits: Object.fromEntries(habits.map((h) => [h.id, skipped ? null : habitStatus(h.id, key, days, settings)])),
     note: day?.note?.trim() || null,
     checkin: day?.checkin ?? null,
     focus: day?.focus?.trim() || null,

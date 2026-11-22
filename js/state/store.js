@@ -76,8 +76,10 @@ export function update(mutator, { notify = true } = {}) {
 /** Like update(), but for one day; creates the day record if it does not exist yet. */
 export function updateDay(dayKey, mutator, options) {
   update((draft) => {
-    draft.days[dayKey] ??= createDay();
-    mutator(draft.days[dayKey]);
+    const day = (draft.days[dayKey] ??= createDay());
+    day.done ??= {}; // a day from an old or hand-edited backup may lack these
+    day.minimum ??= {};
+    mutator(day);
   }, options);
 }
 

@@ -85,3 +85,15 @@ test('check-in, focus and closedAt are validated', () => {
   assert.equal(days['2026-11-24'].closedAt, undefined);
   assert.equal(settings.shutdownFrom, '21:00');
 });
+
+test('a stamp that parseStamp cannot read is dropped, and a block without tasks gets an empty list', () => {
+  const data = createInitialData();
+  data.settings.lastBackupAt = '2026-11-20T9:05'; // one-digit hour
+  data.settings.blocks = [{ id: 'x', title: 'Блок', kind: 'focus', start: '10:00', end: '11:00' }];
+  data.days['2026-11-20'] = { wakeAt: '2026-11-20T9:05', bedAt: '2026-11-21T00:50' };
+
+  const result = migrate(data);
+  assert.equal(result.settings.lastBackupAt, null);
+  assert.deepEqual(result.settings.blocks[0].tasks, []);
+  assert.deepEqual(result.days['2026-11-20'], { bedAt: '2026-11-21T00:50' });
+});

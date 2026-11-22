@@ -25,10 +25,11 @@ export function nowCard({ day, schedule, nowMinutes, edit }) {
   }
 
   if (!current) {
+    const started = schedule.blocks.some((block) => block.start <= nowMinutes);
     return h('section', { class: 'card now-card' },
       focus,
       h('p', { class: 'now-card__label' }, 'Сейчас'),
-      h('p', { class: 'now-card__title' }, 'Окно между делами'),
+      h('p', { class: 'now-card__title' }, started ? 'Окно между делами' : 'День ещё не начался'),
       h('p', { class: 'muted hint' }, `Ещё ${formatDuration(next.start - nowMinutes)}`),
       nextLine,
     );

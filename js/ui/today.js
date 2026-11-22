@@ -9,12 +9,12 @@ import { createRenderer, h } from './dom.js';
 import { formatDayLabel, formatDuration, formatRange, plural } from './format.js';
 import { checkRow, statusRow } from './rows.js';
 import { nowCard } from './nowCard.js';
-import { checkinCard, checkinSummary } from './checkin.js';
-import { shutdownCard } from './shutdown.js';
+import { checkinCard, checkinSummary, isCheckinEditing } from './checkin.js';
+import { shutdownCard, shutdownPrompt } from './shutdown.js';
 import * as store from '../state/store.js';
 import { createDay } from '../state/schema.js';
 import {
-  dayKeyFor, formatMinutes, localDateKey, nowDayMinutes, stampTime, toDayMinutes, toMinutes, toStamp, weekKeys, weekStart,
+  dayKeyFor, formatMinutes, MINUTES_PER_DAY, nowDayMinutes, stampTime, toDayMinutes, toMinutes, toStamp, weekKeys, weekStart,
 } from '../logic/time.js';
 import { buildDaySchedule, findCurrentBlock } from '../logic/schedule.js';
 import {
@@ -34,15 +34,15 @@ const MODES = [
 
 const REFRESH_MS = 30_000;
 
-/** Days whose "close the day" card was opened early (before shutdownFrom), kept across re-renders. */
-const openEarly = new Set();
+/** Days whose "close the day" form is expanded (tapped open), kept across re-renders. */
+const shutdownExpanded = new Set();
 
 export function render(root) {
   const draw = () => {
     const now = new Date();
     const data = store.getData();
     const dayKey = dayKeyFor(now, data.settings.dayBoundary);
-    root.replaceChildren(...buildScreen(data, dayKey, now));
+    root.replaceChildren(...buildScreen(data, dayKey, now, () => renderer.request()));
   };
 
   const renderer = createRenderer(root, draw);
@@ -66,7 +66,7 @@ export function render(root) {
   };
 }
 
-function buildScreen(data, dayKey, now) {
+function buildScreen(data, dayKey, now, redraw) {
   const { settings, days } = data;
   const day = days[dayKey] ?? createDay();
   const mode = day.mode ?? 'normal';
@@ -74,24 +74,34 @@ function buildScreen(data, dayKey, now) {
     settings, dayKey, day, pendingWorkout: hasPendingWorkout(dayKey, days, settings),
   });
   const nowMinutes = nowDayMinutes(now, settings.dayBoundary);
+  const setExpanded = (open) => {
+    if (open) shutdownExpanded.add(dayKey);
+    else shutdownExpanded.delete(dayKey);
+    redraw();
+  };
   const ctx = {
-    settings, days, dayKey, day, mode, schedule, nowMinutes,
+    settings, days, dayKey, day, mode, schedule, now, nowMinutes, redraw,
     edit: (mutator, options) => store.updateDay(dayKey, mutator, options),
+    expandShutdown: () => setExpanded(true),
+    collapseShutdown: () => setExpanded(false),
   };
 
-  // Morning: the check-in waits at the top until done. Evening (from shutdownFrom): "close the day"
-  // moves to the top; earlier it can be opened from the bottom of the screen.
+  // Morning: the check-in waits at the top until done. Evening (from shutdownFrom): a short
+  // "time to close the day" prompt appears at the top; the full form opens on tap, so it never
+  // hides the "Сейчас" card by itself. Earlier in the day everything about closing the day lives
+  // at the bottom of the screen and stays there, so closing or reopening never jumps away.
   const evening = nowMinutes >= toDayMinutes(settings.shutdownFrom, settings.dayBoundary);
-  const showCheckin = !day.checkin && !evening;
-  const shutdownOnTop = evening || Boolean(day.closedAt);
-  const shutdownOpen = shutdownOnTop || openEarly.has(dayKey);
+  const closed = Boolean(day.closedAt);
+  const showCheckin = isCheckinEditing(dayKey) || (!day.checkin && !evening);
+  const expanded = shutdownExpanded.has(dayKey);
+  const shutdown = () => (closed || expanded ? shutdownCard(ctx) : shutdownPrompt(ctx));
 
   const nodes = [
     saveErrorBanner(),
     backupBanner(data, dayKey),
-    !shutdownOnTop && minimumSuggestionBanner(ctx), // pointless in the evening
+    !evening && !closed && minimumSuggestionBanner(ctx), // pointless once the day is over
     showCheckin && checkinCard(ctx),
-    shutdownOnTop && shutdownCard(ctx),
+    evening && shutdown(),
     nowCard(ctx),
     modeCard(ctx),
     mode !== 'sick' && minimumCard(ctx),
@@ -99,10 +109,9 @@ function buildScreen(data, dayKey, now) {
     mode !== 'sick' && applicationsCard(ctx),
     mode !== 'sick' && drivingCard(ctx),
     timelineCard(ctx),
-    shutdownOpen && !shutdownOnTop ? shutdownCard(ctx) : !shutdownOnTop && noteCard(ctx),
-    !shutdownOpen && h('button', {
-      class: 'btn btn--block btn--ghost',
-      onclick: () => { openEarly.add(dayKey); ctx.edit(() => {}); },
+    !evening && (closed || expanded ? shutdownCard(ctx) : noteCard(ctx)),
+    !evening && !closed && !expanded && h('button', {
+      class: 'btn btn--block btn--ghost', onclick: ctx.expandShutdown,
     }, 'Закрыть день'),
   ].filter(Boolean);
 
@@ -203,18 +212,20 @@ function minimumCard({ settings, days, dayKey, day, mode, edit }) {
 
 // ---------- sleep ----------
 
-function sleepCard({ settings, dayKey, day, edit }) {
-  const setTime = (field, stampFor, value) => edit((d) => {
-    if (value) d[field] = stampFor(dayKey, value);
+function sleepCard({ settings, days, dayKey, day, now, nowMinutes }) {
+  // Before noon the "Отбой" row is still about last night: after 05:00 the screen already shows the
+  // new day, but a bedtime recorded then (the button or a typed "01:30") belongs to the previous
+  // one. The button and the field always write to the same day whose value the row shows.
+  const bedKey = bedDayKeyFor(now);
+  const lastNight = bedKey !== dayKey;
+  const bedDay = lastNight ? days[bedKey] ?? {} : day;
+  const afterMidnight = nowMinutes >= MINUTES_PER_DAY; // 00:00–05:00: nobody wakes up "now" for this day
+  const lateBed = !lastNight && Boolean(day.bedAt) && !isBedOnTime(day, dayKey, settings);
+
+  const set = (key, field, stamp) => store.updateDay(key, (d) => {
+    if (stamp) d[field] = stamp;
     else delete d[field];
   });
-  // "Now" buttons work out the day at the moment of the tap: going to bed at 01:30 (or even 05:30)
-  // still belongs to last night, and waking up always belongs to today's date.
-  const recordNow = (field, dayKeyOf) => {
-    const now = new Date();
-    store.updateDay(dayKeyOf(now), (d) => { d[field] = toStamp(now); });
-  };
-  const lateBed = Boolean(day.bedAt) && !isBedOnTime(day, dayKey, settings);
 
   return h('section', { class: 'card' },
     h('h2', { class: 'card__title' }, 'Сон'),
@@ -222,16 +233,17 @@ function sleepCard({ settings, dayKey, day, edit }) {
       label: 'Подъём',
       value: day.wakeAt ? stampTime(day.wakeAt) : '',
       buttonLabel: 'Проснулся',
-      onNow: () => recordNow('wakeAt', localDateKey),
-      onChange: (value) => setTime('wakeAt', wakeStampFor, value),
+      onNow: afterMidnight ? null : () => set(dayKey, 'wakeAt', toStamp(new Date())),
+      onChange: (value) => set(dayKey, 'wakeAt', value && wakeStampFor(dayKey, value)),
     }),
     timeRow({
       label: 'Отбой',
-      value: day.bedAt ? stampTime(day.bedAt) : '',
+      value: bedDay.bedAt ? stampTime(bedDay.bedAt) : '',
       buttonLabel: 'Ложусь',
-      onNow: () => recordNow('bedAt', bedDayKeyFor),
-      onChange: (value) => setTime('bedAt', bedStampFor, value),
+      onNow: () => set(bedKey, 'bedAt', toStamp(new Date())),
+      onChange: (value) => set(bedKey, 'bedAt', value && bedStampFor(bedKey, value)),
     }),
+    lastNight && h('p', { class: 'muted hint' }, 'До 12:00 отбой записывается за прошлую ночь.'),
     lateBed && h('p', { class: 'hint hint--warning' }, `Позже ${settings.bedTarget} — завтра не дави на себя.`),
   );
 }
@@ -250,7 +262,7 @@ function timeRow({ label, value, buttonLabel, onNow, onChange }) {
     }),
     value
       ? h('span', { class: 'time-row__done', 'aria-hidden': 'true' }, '✓')
-      : h('button', { class: 'btn btn--primary', onclick: onNow }, buttonLabel),
+      : onNow ? h('button', { class: 'btn btn--primary', onclick: onNow }, buttonLabel) : h('span'),
   );
 }
 

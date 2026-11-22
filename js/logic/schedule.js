@@ -29,24 +29,28 @@ export function buildDaySchedule({ settings, dayKey, day = {}, pendingWorkout = 
   let blocks = expandTemplate(settings, { workoutToday, carriedOver: pendingWorkout && !regularWorkout });
   let unplaced = [];
 
-  if (day?.drivingLesson) {
-    ({ blocks, unplaced } = applyDrivingLesson(blocks, day.drivingLesson, settings));
-  }
-
   if (day?.mode === 'sick') {
+    // No lesson on a sick day, so nothing is moved or marked as a conflict either.
     blocks = blocks.filter((block) => SICK_MODE_KINDS.has(block.kind));
-    unplaced = [];
+  } else if (day?.drivingLesson) {
+    ({ blocks, unplaced } = applyDrivingLesson(blocks, day.drivingLesson, settings));
   }
 
   blocks.sort((a, b) => a.start - b.start || a.end - b.end);
   return { blocks, unplaced, workoutToday };
 }
 
-/** The block happening at `minutes` (day minutes), or null. Zero-length markers are skipped. */
+/**
+ * The block happening at `minutes` (day minutes), or null. Zero-length markers are skipped.
+ * When blocks overlap, one that a driving lesson pushed aside (`conflict`) loses to the lesson
+ * itself; otherwise the latest start wins.
+ */
 export function findCurrentBlock(blocks, minutes) {
   let current = null;
   for (const block of blocks) {
-    if (block.start <= minutes && minutes < block.end) current = block; // latest start wins
+    if (!(block.start <= minutes && minutes < block.end)) continue;
+    if (current && block.conflict && !current.conflict) continue;
+    current = block;
   }
   return current;
 }

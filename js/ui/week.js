@@ -34,11 +34,17 @@ export function render(root) {
 
   let active = true; // false once the user leaves this tab (the root element is reused)
   const redraw = () => { if (active) draw(); };
+  // The app can stay open on this tab overnight: "today" and "this week" are worked out again.
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') redraw();
+  };
   draw();
   const unsubscribe = store.subscribe(redraw);
+  document.addEventListener('visibilitychange', onVisible);
   return () => {
     active = false;
     unsubscribe();
+    document.removeEventListener('visibilitychange', onVisible);
   };
 }
 
@@ -59,6 +65,9 @@ function navCard(stats, weekOffset, move) {
 
 // ---------- summary ----------
 
+/** "2 из 5"; with nothing to count against (no goal, no planned days yet) just the number or a dash. */
+const outOf = (done, total) => (total > 0 ? `${done} из ${total}` : done > 0 ? String(done) : '—');
+
 function summaryCard({ totals: t, goals, streaks }) {
   const effectiveDays = t.daysElapsed - t.sickDays;
   const applicationsPercent = goals.weeklyApplications
@@ -68,15 +77,15 @@ function summaryCard({ totals: t, goals, streaks }) {
   return h('section', { class: 'card' },
     h('h2', { class: 'card__title' }, 'Итог'),
     h('div', { class: 'tiles' },
-      tile('Минимум дня', `${t.minimumMet} из ${effectiveDays}`, t.sickDays ? `болел: ${t.sickDays}` : null),
-      tile('Отклики', `${t.applications} из ${goals.weeklyApplications}`, null,
+      tile('Минимум дня', outOf(t.minimumMet, effectiveDays), t.sickDays ? `болел: ${t.sickDays}` : null),
+      tile('Отклики', outOf(t.applications, goals.weeklyApplications), null,
         h('div', { class: 'progress progress--small' },
           h('div', {
             class: `progress__bar${t.applications >= goals.weeklyApplications ? ' progress__bar--done' : ''}`,
             style: `width: ${applicationsPercent}%`,
           }))),
       tile('Вождение', `${t.drivingLessons} ${plural(t.drivingLessons, 'урок', 'урока', 'уроков')}`),
-      tile('Гиря', `${t.workoutsDone} из ${t.workoutsPlanned}`),
+      tile('Гиря', outOf(t.workoutsDone, t.workoutsPlanned)),
     ),
     h('p', { class: 'week-times' },
       h('span', {}, 'Подъём в среднем ', h('strong', {}, t.averageWake ?? '—')),
@@ -86,7 +95,7 @@ function summaryCard({ totals: t, goals, streaks }) {
       h('span', {}, 'Сон в среднем ', h('strong', {}, `${t.averageSleep}/5`)),
       h('span', {}, 'Энергия ', h('strong', {}, `${t.averageEnergy}/5`)),
     ),
-    h('p', { class: 'week-times' }, h('span', {}, 'Дней закрыто вечером ', h('strong', {}, `${t.daysClosed} из ${t.daysElapsed}`))),
+    h('p', { class: 'week-times' }, h('span', {}, 'Дней закрыто вечером ', h('strong', {}, outOf(t.daysClosed, t.daysElapsed)))),
     streaks && h('p', { class: 'streak' },
       `Серия минимума: ${streaks.minimum} ${plural(streaks.minimum, 'день', 'дня', 'дней')}`),
   );

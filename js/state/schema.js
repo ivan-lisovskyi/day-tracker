@@ -94,8 +94,10 @@ function isTime(value) {
   return Boolean(match) && Number(match[1]) <= 23 && Number(match[2]) <= 59;
 }
 
+/** Same shape time.parseStamp() requires ("YYYY-MM-DDTHH:MM", two-digit hours), so it never throws later. */
 function isStamp(value) {
-  return isString(value) && isDateKey(value.slice(0, 10)) && value[10] === 'T' && isTime(value.slice(11, 16));
+  return isString(value) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)
+    && isDateKey(value.slice(0, 10)) && isTime(value.slice(11, 16));
 }
 
 const isRating = (value) => Number.isInteger(value) && value >= 1 && value <= 5;
@@ -136,7 +138,9 @@ function normalizeSettings(input) {
   }
   result.workout = workout;
 
-  result.blocks = Array.isArray(settings.blocks) ? settings.blocks.filter(isBlock) : defaults.blocks;
+  result.blocks = Array.isArray(settings.blocks)
+    ? settings.blocks.filter(isBlock).map((block) => (block.tasks ? block : { ...block, tasks: [] }))
+    : defaults.blocks;
   return result;
 }
 

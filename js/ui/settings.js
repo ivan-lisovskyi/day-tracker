@@ -5,7 +5,7 @@
 import { createRenderer, h } from './dom.js';
 import { formatDayLabel, formatRange } from './format.js';
 import { restoreBackup, saveBackup } from './backup.js';
-import { isStoragePersistent } from '../pwa.js';
+import { checkForUpdate, installedVersion, isStoragePersistent } from '../pwa.js';
 import * as store from '../state/store.js';
 import { toDayMinutes, stampTime, parseStamp } from '../logic/time.js';
 
@@ -34,6 +34,7 @@ export function render(root) {
   const openBlocks = new Set(); // which block editors are expanded (survives re-renders)
   let notice = null; // { ok, text } after backup actions
   let persistent = null; // is storage protected from automatic eviction?
+  let version = null; // version of the installed app (from the service worker), null on a local run
 
   const draw = () => {
     rememberOpenEditors(root, openBlocks);
@@ -44,16 +45,29 @@ export function render(root) {
       goalsCard(settings),
       workoutCard(settings),
       blocksCard(settings, openBlocks),
-      backupCard(settings, persistent, (result) => { notice = result; draw(); }),
+      backupCard(settings, persistent, setNotice),
+      aboutCard(version, setNotice),
     ];
     root.replaceChildren(...nodes.filter(Boolean));
   };
 
   let active = true; // false once the user leaves this tab (the root element is reused)
   const renderer = createRenderer(root, draw);
+  // Results of backup / update actions arrive later (file picker, network): by then the user may
+  // be on another tab or typing. The banner is the first thing on the screen, so scroll to it.
+  function setNotice(result) {
+    if (!active) return;
+    notice = result;
+    renderer.request();
+    window.scrollTo(0, 0);
+  }
   draw();
   isStoragePersistent().then((value) => {
     persistent = value;
+    if (active) renderer.request();
+  });
+  installedVersion().then((value) => {
+    version = value;
     if (active) renderer.request();
   });
   const unsubscribe = store.subscribe(renderer.request);
@@ -244,6 +258,29 @@ function backupCard(s, persistent, setNotice) {
     }, 'Сохранить бэкап (JSON)'),
     h('button', { class: 'btn btn--block', onclick: () => fileInput.click() }, 'Восстановить из файла…'),
     fileInput,
+  );
+}
+
+// ---------- about ----------
+
+const UPDATE_NOTICES = {
+  found: { ok: true, text: 'Найдена новая версия. Когда появится «Доступно обновление», нажми «Перезапустить».' },
+  latest: { ok: true, text: 'У тебя последняя версия.' },
+  offline: { ok: false, text: 'Не получилось проверить: нет связи с сервером.' },
+  unsupported: { ok: false, text: 'Обновления работают только в установленном приложении (по ссылке https).' },
+};
+
+function aboutCard(version, setNotice) {
+  return h('section', { class: 'card' },
+    h('h2', { class: 'card__title' }, 'О приложении'),
+    h('p', {}, 'Версия: ', h('strong', {}, version ?? 'офлайн-режим ещё не включён')),
+    h('button', {
+      class: 'btn btn--block',
+      onclick: async (e) => {
+        e.target.disabled = true;
+        setNotice(UPDATE_NOTICES[await checkForUpdate()]);
+      },
+    }, 'Проверить обновление'),
   );
 }
 

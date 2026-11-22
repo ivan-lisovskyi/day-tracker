@@ -9,7 +9,7 @@
  * Releasing a change: bump VERSION here and "version" in package.json (a test checks they match).
  * When adding a file to the app, add it to ASSETS (a test checks nothing is missing).
  */
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 const CACHE_NAME = `day-tracker-${VERSION}`;
 
 const ASSETS = [
@@ -66,6 +66,8 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  // Settings shows which version is actually installed (the one serving the page).
+  if (event.data?.type === 'GET_VERSION') event.ports[0]?.postMessage(VERSION);
 });
 
 self.addEventListener('fetch', (event) => {

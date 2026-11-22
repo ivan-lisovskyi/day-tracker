@@ -134,3 +134,18 @@ test('nowAndNext: current block with remaining time, and what comes next', () =>
   assert.equal(after.current, null);
   assert.equal(after.next, null);
 });
+
+test('during a lesson the "now" block is the lesson, not the fixed block it overlaps', () => {
+  const day = { drivingLesson: { start: '12:00', end: '13:00' } }; // over lunch (12:30–13:30)
+  const { blocks } = buildDaySchedule({ settings, dayKey: TUESDAY, day });
+  const current = findCurrentBlock(blocks, 12 * 60 + 40);
+  assert.equal(current.kind, 'driving');
+  assert.equal(nowAndNext(blocks, 12 * 60 + 40).current.kind, 'driving');
+});
+
+test('sick mode ignores a planned lesson: no conflict marks on the sleep routine', () => {
+  const day = { mode: 'sick', drivingLesson: { start: '08:45', end: '09:10' } }; // over "Подъём"
+  const { blocks, unplaced } = buildDaySchedule({ settings, dayKey: TUESDAY, day });
+  assert.equal(blocks.some((b) => b.conflict), false);
+  assert.deepEqual(unplaced, []);
+});

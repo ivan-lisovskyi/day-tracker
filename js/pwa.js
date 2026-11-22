@@ -27,9 +27,11 @@ export async function registerServiceWorker() {
   // Set when the user taps "Перезапустить": that tap is the signal to reload, even in the very
   // session where the app was first installed (when there was no previous controller).
   let updateRequested = false;
+  // The banner is shown once; if a second release lands before the tap, the first worker is
+  // already discarded, so the message goes to whichever worker is waiting at that moment.
   const offerUpdate = (worker) => showUpdateBanner(() => {
     updateRequested = true;
-    worker.postMessage({ type: 'SKIP_WAITING' });
+    (registration.waiting ?? worker).postMessage({ type: 'SKIP_WAITING' });
   });
 
   // A new version was downloaded earlier and is waiting.
@@ -79,6 +81,42 @@ function showUpdateBanner(onUpdate) {
 
   banner.append(text, button);
   document.body.append(banner);
+  document.body.classList.add('has-update-banner'); // extra bottom padding, so the banner covers nothing
+}
+
+const VERSION_TIMEOUT_MS = 1000;
+
+/**
+ * Version of the service worker that serves this page, i.e. of the installed app.
+ * null when there is no service worker (local run) or it does not answer.
+ */
+export function installedVersion() {
+  const controller = navigator.serviceWorker?.controller;
+  if (!controller) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => resolve(null), VERSION_TIMEOUT_MS);
+    channel.port1.onmessage = (event) => {
+      clearTimeout(timer);
+      resolve(typeof event.data === 'string' ? event.data : null);
+    };
+    controller.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
+  });
+}
+
+/**
+ * Asks the server for a new version right now. Returns 'found' (the "Доступно обновление" banner
+ * will appear), 'latest', 'offline' (the check failed) or 'unsupported' (no service worker).
+ */
+export async function checkForUpdate() {
+  const registration = await navigator.serviceWorker?.getRegistration();
+  if (!registration) return 'unsupported';
+  try {
+    await registration.update();
+  } catch {
+    return 'offline';
+  }
+  return registration.installing || registration.waiting ? 'found' : 'latest';
 }
 
 /**

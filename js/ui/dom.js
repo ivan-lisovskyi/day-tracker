@@ -39,7 +39,12 @@ export function createRenderer(root, draw) {
     return Boolean(el && root.contains(el) && el.matches('input:not([type="checkbox"]), textarea, select'));
   };
 
+  // Set when the screen is left: a redraw queued just before a tab switch must not paint the old
+  // screen over the new one (all tabs share the same root element).
+  let disposed = false;
+
   const drawIfIdle = () => {
+    if (disposed) return;
     if (pending && !isEditing()) {
       pending = false;
       draw();
@@ -63,5 +68,9 @@ export function createRenderer(root, draw) {
   const onFocusOut = () => setTimeout(drawIfIdle, 0);
 
   root.addEventListener('focusout', onFocusOut);
-  return { request, dispose: () => root.removeEventListener('focusout', onFocusOut) };
+  const dispose = () => {
+    disposed = true;
+    root.removeEventListener('focusout', onFocusOut);
+  };
+  return { request, dispose };
 }

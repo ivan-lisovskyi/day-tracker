@@ -154,3 +154,10 @@ test('"close the day" is a habit', () => {
   assert.equal(habitStatus('shutdown', TUESDAY, days, settings), false);
   assert.equal(habitStatus('shutdown', FRIDAY, days, settings), null);
 });
+
+test('a sick day never counts as a miss, so sleep streaks survive it', () => {
+  const days = { [MONDAY]: { mode: 'sick', wakeAt: `${MONDAY}T11:40`, done: {} } };
+  assert.equal(habitStatus('wake', MONDAY, days, settings), null); // overslept while sick: neutral
+  assert.equal(habitStatus('bed', MONDAY, days, settings), null);
+  assert.equal(habitStatus('phone-away', MONDAY, days, settings), null);
+});

@@ -69,7 +69,7 @@ test('per-day details, future days and habits', () => {
   assert.equal(sun.counted, null);
 
   const wake = stats.habits.find((h) => h.id === 'wake');
-  assert.deepEqual([wake.done, wake.applicable], [3, 6]); // Mon, Fri, Sat on time
+  assert.deepEqual([wake.done, wake.applicable], [3, 5]); // Mon, Fri, Sat on time
 });
 
 test('streaks are included only for the current week', () => {
@@ -104,7 +104,7 @@ test('text export contains the summary, every day and the note', () => {
     'Сб 21.11 (сегодня) — минимум ✗',
     '  пока не отмечено: Гиря 12 кг;',
     'Вс 22.11 — ещё не наступил',
-    '- Подъём до 09:30: 3/6, серия 2',
+    '- Подъём до 09:30: 3/5, серия 2',
   ]) {
     assert.ok(text.includes(expected), `missing "${expected}" in:\n${text}`);
   }
@@ -142,4 +142,31 @@ test('check-ins, focus of the day and closed days are in the stats and the expor
   ]) {
     assert.ok(text.includes(expected), `missing "${expected}" in:\n${text}`);
   }
+});
+
+test('days before the first record (before the app was installed) are not misses', () => {
+  const data = {
+    settings: createDefaultSettings(),
+    days: { '2026-11-20': { mode: 'normal', wakeAt: '2026-11-20T09:00', done: {} } }, // first use: Friday
+  };
+  const stats = buildWeekStats(data, MONDAY, TODAY);
+  const [mon, , , thu, fri] = stats.days;
+
+  assert.equal(mon.isBeforeStart, true);
+  assert.equal(mon.habits.wake, null);
+  assert.equal(thu.counted, null);
+  assert.equal(fri.isBeforeStart, false);
+  assert.equal(stats.totals.daysElapsed, 2); // Fri and Sat
+  const wake = stats.habits.find((h) => h.id === 'wake');
+  assert.deepEqual([wake.done, wake.applicable], [1, 2]);
+});
+
+test('a lesson planned for a day that turned out sick is not counted', () => {
+  const data = {
+    settings: createDefaultSettings(),
+    days: { '2026-11-17': { mode: 'sick', drivingLesson: { start: '14:00', end: '15:00' }, done: {} } },
+  };
+  const stats = buildWeekStats(data, MONDAY, TODAY);
+  assert.equal(stats.totals.drivingLessons, 0);
+  assert.equal(weekToText(stats).includes('вождение'), false);
 });

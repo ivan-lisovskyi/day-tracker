@@ -44,7 +44,7 @@ For other static hosts, `npm run build` copies only the app files into `dist/` (
 
 1. Bump `version` in `package.json` and `VERSION` in `sw.js` (a test checks they match).
 2. New files must be added to `ASSETS` in `sw.js` (a test checks nothing is missing).
-3. After the deploy, the installed app shows "Доступно обновление" → tap "Перезапустить".
+3. After the deploy, the installed app shows "Доступно обновление" → tap "Перезапустить". Settings → "О приложении" shows the installed version and has a "Проверить обновление" button.
 
 ## Tests
 

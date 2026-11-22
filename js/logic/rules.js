@@ -156,7 +156,7 @@ export function listHabits(settings) {
 
 /**
  * true = done, false = missed, null = not applicable that day (doesn't break a streak).
- * - sick days: only sleep habits are evaluated;
+ * - sick days: only sleep habits can be done, and nothing counts as missed;
  * - minimum days: undone non-sleep habits are neutral;
  * - workout/stretch: only on the days they are planned.
  */
@@ -176,6 +176,7 @@ export function habitStatus(habitId, dayKey, days, settings) {
   else if (habitId === 'shutdown') done = Boolean(day.closedAt);
   else done = day.done?.[habitId] === true;
 
+  if (!done && day.mode === 'sick') return null; // "streaks do not break while sick"
   if (!done && day.mode === 'minimum' && !isSleep) return null;
   return done;
 }
