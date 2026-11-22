@@ -8,7 +8,7 @@ const CONFIG_KEY = 'day-tracker:ai';
 const SESSION_KEY = 'day-tracker:ai-plan';
 
 /** Filled in once the worker is deployed; until then the address is typed in Settings. */
-export const DEFAULT_ENDPOINT = '';
+export const DEFAULT_ENDPOINT = 'https://day-tracker-ai.day-tracker-ai.workers.dev';
 
 function read(key) {
   try {

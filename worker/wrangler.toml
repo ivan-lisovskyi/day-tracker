@@ -16,4 +16,4 @@ DAILY_LIMIT = "20"
 #   npx wrangler kv namespace create LIMITS
 [[kv_namespaces]]
 binding = "LIMITS"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "8b10aca73fa643c28239a0f5c0d8cc1d"
