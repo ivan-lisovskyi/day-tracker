@@ -806,6 +806,44 @@ label.card__title {
   font-weight: 600;
 }
 
+.day-row__link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.day-row__link:active {
+  opacity: 0.6;
+}
+
+.day-row__head .pill {
+  margin-left: auto;
+}
+
+.day-row__chevron {
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* An earlier day opened from "Неделя" */
+.past-day {
+  margin-bottom: 4px;
+}
+
+.link-btn.back-link { /* two classes: must win over .link-btn further down */
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.past-day .hint,
+.past-day__closed {
+  margin-top: 0;
+}
+
 .day-row__facts,
 .day-row__note {
   margin: 4px 0 0;

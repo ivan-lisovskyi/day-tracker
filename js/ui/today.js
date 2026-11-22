@@ -2,6 +2,9 @@
  * "Сегодня" screen: mode of the day, minimum, sleep, job applications,
  * driving lesson, the timeline with checkboxes and a note.
  *
+ * The same screen shows an earlier day (opened from "Неделя"), so a forgotten mark can be
+ * fixed later: no "now" card, no evening review and no "now" buttons, everything else editable.
+ *
  * The whole screen re-renders on every data change (it is small), but never while the user is
  * typing in a field (see createRenderer); the current block highlight is refreshed every 30 s.
  */
@@ -40,11 +43,22 @@ const REFRESH_MS = 30_000;
 const shutdownExpanded = new Set();
 
 export function render(root) {
+  return renderDay(root, null);
+}
+
+/** An earlier day, "2026-11-21": the router checks that it is in the past. */
+export function renderPastDay(root, dayKey) {
+  return renderDay(root, dayKey);
+}
+
+function renderDay(root, pastKey) {
   const draw = () => {
     const now = new Date();
     const data = store.getData();
-    const dayKey = dayKeyFor(now, data.settings.dayBoundary);
-    root.replaceChildren(...buildScreen(data, dayKey, now, () => renderer.request()));
+    const redraw = () => renderer.request();
+    root.replaceChildren(...(pastKey
+      ? buildPastScreen(data, pastKey, now, redraw)
+      : buildScreen(data, dayKeyFor(now, data.settings.dayBoundary), now, redraw)));
   };
 
   const renderer = createRenderer(root, draw);
@@ -68,27 +82,53 @@ export function render(root) {
   };
 }
 
-function buildScreen(data, dayKey, now, redraw) {
+/** Everything the cards need about one day. For a past day nothing is "now". */
+function dayContext(data, dayKey, now, redraw, past) {
   const { settings, days } = data;
   const day = days[dayKey] ?? createDay();
-  const mode = day.mode ?? 'normal';
   const schedule = buildDaySchedule({
     settings, dayKey, day,
     pendingWorkout: hasPendingWorkout(dayKey, days, settings),
-    workoutPlanned: isWorkoutPlanned(dayKey, days, settings), // knows the weekly goal and today's choice
+    workoutPlanned: isWorkoutPlanned(dayKey, days, settings), // knows the weekly goal and the day's choice
   });
-  const nowMinutes = nowDayMinutes(now, settings.dayBoundary);
   const setExpanded = (open) => {
     if (open) shutdownExpanded.add(dayKey);
     else shutdownExpanded.delete(dayKey);
     redraw();
   };
-  const ctx = {
-    settings, days, dayKey, day, mode, schedule, now, nowMinutes, redraw,
+  return {
+    settings, days, dayKey, day, mode: day.mode ?? 'normal', schedule, now, past, redraw,
+    nowMinutes: past ? -1 : nowDayMinutes(now, settings.dayBoundary), // -1: no block is current
     edit: (mutator, options) => store.updateDay(dayKey, mutator, options),
     expandShutdown: () => setExpanded(true),
     collapseShutdown: () => setExpanded(false),
   };
+}
+
+function buildPastScreen(data, dayKey, now, redraw) {
+  const ctx = dayContext(data, dayKey, now, redraw, true);
+  const { day, mode } = ctx;
+  return [
+    saveErrorBanner(),
+    h('div', { class: 'past-day' },
+      h('a', { class: 'link-btn back-link', href: '#week' }, '‹ Неделя'),
+      h('p', { class: 'muted hint' }, 'Можно исправить отметки: серии и сводка недели пересчитаются.'),
+    ),
+    modeCard(ctx), // the date comes first: which day is this
+    (isCheckinEditing(dayKey) || !day.checkin) && checkinCard(ctx),
+    mode !== 'sick' && minimumCard(ctx),
+    sleepCard(ctx),
+    mode !== 'sick' && applicationsCard(ctx),
+    mode !== 'sick' && drivingCard(ctx),
+    timelineCard(ctx),
+    noteCard(ctx),
+    day.closedAt && h('p', { class: 'muted hint past-day__closed' }, `День закрыт в ${stampTime(day.closedAt)}.`),
+  ].filter(Boolean);
+}
+
+function buildScreen(data, dayKey, now, redraw) {
+  const ctx = dayContext(data, dayKey, now, redraw, false);
+  const { settings, day, mode, nowMinutes } = ctx;
 
   // Morning: the check-in waits at the top until done. Evening (from shutdownFrom): a short
   // "time to close the day" prompt appears at the top; the full form opens on tap, so it never
@@ -173,13 +213,15 @@ function modeCard(ctx) {
       }, label)),
     ),
     mode === 'minimum' && h('p', { class: 'muted hint' }, 'Плохой день — достаточно минимума. Остальное по желанию.'),
-    mode === 'sick' && h('p', { class: 'muted hint' }, 'Выздоравливай. Сегодня отмечается только сон, серии не прервутся.'),
+    mode === 'sick' && h('p', { class: 'muted hint' }, ctx.past
+      ? 'В этот день отмечается только сон, серии не прерываются.'
+      : 'Выздоравливай. Сегодня отмечается только сон, серии не прервутся.'),
   );
 }
 
 // ---------- minimum ----------
 
-function minimumCard({ settings, days, dayKey, day, mode, edit }) {
+function minimumCard({ settings, days, dayKey, day, mode, edit, past }) {
   const status = minimumStatus(day, dayKey, settings);
   const doneCount = [status.wake, status.cbr, status.work].filter(Boolean).length;
   const streak = minimumStreak(dayKey, days, settings);
@@ -201,7 +243,7 @@ function minimumCard({ settings, days, dayKey, day, mode, edit }) {
       onChange: (checked) => edit((d) => { d.minimum.cbr10 = checked; }),
     }),
     statusRow(status.work, '1 отклик или 15 мин кода',
-      applications > 0 ? `откликов сегодня: ${applications}` : 'отклик можно добавить ниже'),
+      applications > 0 ? `откликов ${past ? 'в этот день' : 'сегодня'}: ${applications}` : 'отклик можно добавить ниже'),
     checkRow({
       checked: Boolean(day.minimum?.code15 || day.done?.code),
       disabled: Boolean(day.done?.code),
@@ -217,11 +259,11 @@ function minimumCard({ settings, days, dayKey, day, mode, edit }) {
 
 // ---------- sleep ----------
 
-function sleepCard({ settings, days, dayKey, day, now, nowMinutes }) {
+function sleepCard({ settings, days, dayKey, day, now, nowMinutes, past }) {
   // Before noon the "Отбой" row is still about last night: after 05:00 the screen already shows the
   // new day, but a bedtime recorded then (the button or a typed "01:30") belongs to the previous
   // one. The button and the field always write to the same day whose value the row shows.
-  const bedKey = bedDayKeyFor(now);
+  const bedKey = past ? dayKey : bedDayKeyFor(now);
   const lastNight = bedKey !== dayKey;
   const bedDay = lastNight ? days[bedKey] ?? {} : day;
   const afterMidnight = nowMinutes >= MINUTES_PER_DAY; // 00:00–05:00: nobody wakes up "now" for this day
@@ -238,18 +280,18 @@ function sleepCard({ settings, days, dayKey, day, now, nowMinutes }) {
       label: 'Подъём',
       value: day.wakeAt ? stampTime(day.wakeAt) : '',
       buttonLabel: 'Проснулся',
-      onNow: afterMidnight ? null : () => set(dayKey, 'wakeAt', toStamp(new Date())),
+      onNow: afterMidnight || past ? null : () => set(dayKey, 'wakeAt', toStamp(new Date())),
       onChange: (value) => set(dayKey, 'wakeAt', value && wakeStampFor(dayKey, value)),
     }),
     timeRow({
       label: 'Отбой',
       value: bedDay.bedAt ? stampTime(bedDay.bedAt) : '',
       buttonLabel: 'Ложусь',
-      onNow: () => set(bedKey, 'bedAt', toStamp(new Date())),
+      onNow: past ? null : () => set(bedKey, 'bedAt', toStamp(new Date())),
       onChange: (value) => set(bedKey, 'bedAt', value && bedStampFor(bedKey, value)),
     }),
     lastNight && h('p', { class: 'muted hint' }, 'До 12:00 отбой записывается за прошлую ночь.'),
-    lateBed && h('p', { class: 'hint hint--warning' }, `Позже ${settings.bedTarget} — завтра не дави на себя.`),
+    lateBed && !past && h('p', { class: 'hint hint--warning' }, `Позже ${settings.bedTarget} — завтра не дави на себя.`),
   );
 }
 
@@ -273,7 +315,7 @@ function timeRow({ label, value, buttonLabel, onNow, onChange }) {
 
 // ---------- job applications ----------
 
-function applicationsCard({ settings, days, dayKey, day, edit }) {
+function applicationsCard({ settings, days, dayKey, day, edit, past }) {
   const today = day.applications ?? 0;
   const goal = settings.weeklyApplicationsGoal;
   const weekTotal = weekKeys(weekStart(dayKey)).reduce((sum, key) => sum + (days[key]?.applications ?? 0), 0);
@@ -286,7 +328,7 @@ function applicationsCard({ settings, days, dayKey, day, edit }) {
         class: 'btn stepper__btn', 'aria-label': 'Убрать отклик', disabled: today === 0,
         onclick: () => edit((d) => { d.applications = Math.max(0, (d.applications ?? 0) - 1); }),
       }, '−'),
-      h('div', { class: 'stepper__value' }, h('strong', {}, String(today)), h('span', { class: 'muted' }, 'сегодня')),
+      h('div', { class: 'stepper__value' }, h('strong', {}, String(today)), h('span', { class: 'muted' }, past ? 'в этот день' : 'сегодня')),
       h('button', {
         class: 'btn btn--primary stepper__btn', 'aria-label': 'Добавить отклик',
         onclick: () => edit((d) => { d.applications = (d.applications ?? 0) + 1; }),
@@ -302,7 +344,7 @@ function applicationsCard({ settings, days, dayKey, day, edit }) {
 
 // ---------- driving lesson ----------
 
-function drivingCard({ settings, day, schedule, edit }) {
+function drivingCard({ settings, day, schedule, edit, past }) {
   const lesson = day.drivingLesson;
 
   if (!lesson) {
@@ -311,7 +353,7 @@ function drivingCard({ settings, day, schedule, edit }) {
       h('button', {
         class: 'btn btn--block',
         onclick: () => edit((d) => { d.drivingLesson = defaultLesson(new Date()); }),
-      }, '+ Урок вождения сегодня'),
+      }, past ? '+ Урок вождения' : '+ Урок вождения сегодня'),
     );
   }
 
@@ -333,7 +375,7 @@ function drivingCard({ settings, day, schedule, edit }) {
     conflicts.length > 0 && h('p', { class: 'hint hint--warning' },
       `Пересекается: ${conflicts.map((b) => b.title).join(', ')}`),
     schedule.unplaced.length > 0 && h('div', { class: 'unplaced' },
-      h('p', { class: 'hint hint--warning' }, 'Не помещается сегодня:'),
+      h('p', { class: 'hint hint--warning' }, past ? 'Не поместилось:' : 'Не помещается сегодня:'),
       h('ul', {}, schedule.unplaced.map((u) => h('li', {}, `${u.title} — ${formatDuration(u.minutes)}`))),
     ),
     h('button', { class: 'btn btn--block btn--ghost', onclick: () => edit((d) => { d.drivingLesson = null; }) }, 'Убрать урок'),

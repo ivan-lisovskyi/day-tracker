@@ -18,12 +18,16 @@ export const title = 'Неделя';
 
 const WEEKDAY_LETTERS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
+// The week that was on screen when a day was opened from it: "‹ Неделя" comes back to it.
+let returnOffset = 0;
+
 // "Подстроить план с ИИ": the request state outlives a tab switch (the answer takes a few seconds).
 let aiState = { status: 'idle' }; // { status: 'idle' | 'loading' } | { status: 'error', message }
 let redrawWeek = null; // redraw of the Week screen that is on screen now, if any
 
 export function render(root) {
-  let weekOffset = 0; // 0 = this week, -1 = last week…
+  let weekOffset = returnOffset; // 0 = this week, -1 = last week…
+  returnOffset = 0;
   let exportState = null; // null | { status: 'copied' } | { status: 'manual', text }
 
   const draw = () => {
@@ -40,7 +44,7 @@ export function render(root) {
         redraw();
       }),
       summaryCard(stats),
-      daysCard(stats),
+      daysCard(stats, () => { returnOffset = weekOffset; }),
       habitsCard(stats),
       exportCard(stats, exportState, async () => { exportState = await copyWeek(stats); redraw(); }),
       aiCard(stats, data.settings, redraw),
@@ -295,14 +299,16 @@ async function copyWeek(stats) {
 
 // ---------- days ----------
 
-function daysCard(stats) {
+function daysCard(stats, onOpen) {
   return h('section', { class: 'card' },
     h('h2', { class: 'card__title' }, 'По дням'),
-    h('ol', { class: 'days' }, stats.days.map(dayRow)),
+    h('ol', { class: 'days' }, stats.days.map((day) => dayRow(day, onOpen))),
+    h('p', { class: 'muted hint' }, 'Нажми на день, чтобы посмотреть или исправить отметки.'),
   );
 }
 
-function dayRow(day) {
+/** A past day opens on its own screen, today opens "Сегодня"; future days are not links. */
+function dayRow(day, onOpen) {
   const [label, modifier] = dayStatus(day);
   const facts = day.hasRecord && !day.isFuture
     ? [
@@ -315,14 +321,20 @@ function dayRow(day) {
     ].filter(Boolean)
     : [];
 
-  return h('li', { class: `day-row${day.isToday ? ' is-today' : ''}` },
+  const content = [
     h('div', { class: 'day-row__head' },
       h('span', { class: 'day-row__date' }, formatDayShort(day.date, day.weekday)),
       h('span', { class: `pill pill--${modifier}` }, label),
+      !day.isFuture && h('span', { class: 'day-row__chevron', 'aria-hidden': 'true' }, '›'),
     ),
     facts.length > 0 && h('p', { class: 'day-row__facts' }, facts.join(' · ')),
     day.focus && h('p', { class: 'day-row__facts' }, `Главное: ${day.focus}`),
     day.note && h('p', { class: 'day-row__note' }, day.note),
+  ];
+  return h('li', { class: `day-row${day.isToday ? ' is-today' : ''}` },
+    day.isFuture
+      ? content
+      : h('a', { class: 'day-row__link', href: day.isToday ? '#today' : `#day/${day.date}`, onclick: onOpen }, content),
   );
 }
 

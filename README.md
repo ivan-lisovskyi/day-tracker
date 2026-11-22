@@ -72,6 +72,7 @@ On the Week screen the app sends the week's statistics and the current plan to a
 - [x] Rules engine + tests (day boundary, driving lessons, workout carry-over, streaks)
 - [x] "Today" screen
 - [x] "Week" screen + text export
+- [x] Open an earlier day from "Week" to see and fix its marks
 - [x] Settings + JSON backup
 - [x] Offline support (service worker, update banner, persistent storage)
 - [x] "Сейчас" card: the current block with time left, its checkboxes and what comes next

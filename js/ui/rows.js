@@ -74,7 +74,7 @@ export function taskRow(task, day, edit) {
  * Workout goal "N times a week": the week's progress and a link that swaps today's plan
  * (workout ↔ stretching). Shown in the workout block; null in fixed-weekday mode.
  */
-export function workoutGoalLine({ settings, days, dayKey, day, edit }) {
+export function workoutGoalLine({ settings, days, dayKey, day, edit, past }) {
   if (!isWeeklyWorkoutGoal(settings)) return null;
   const { done, goal } = weeklyWorkoutProgress(dayKey, days, settings);
   const planned = isWorkoutPlanned(dayKey, days, settings);
@@ -86,6 +86,6 @@ export function workoutGoalLine({ settings, days, dayKey, day, edit }) {
     !day.done?.workout && h('button', {
       class: 'link-btn',
       onclick: () => edit((d) => { d.workoutChoice = planned ? 'stretch' : 'workout'; }),
-    }, `сегодня ${other}`),
+    }, past ? `было: ${other}` : `сегодня ${other}`),
   );
 }
