@@ -5,17 +5,16 @@
 import { h } from './dom.js';
 import * as store from '../state/store.js';
 import { addDays, stampTime, toDayMinutes, toStamp } from '../logic/time.js';
-import { minimumStatus } from '../logic/rules.js';
+import { isSkipped, minimumStatus } from '../logic/rules.js';
 
 const TOMORROW_MODES = [['normal', 'Обычный'], ['minimum', 'Минимум']];
 const DEFAULT_LESSON = { start: '10:00', end: '11:00' };
 
 /** Collapsed evening prompt: one line of summary and a button that opens the full form. */
 export function shutdownPrompt({ dayKey, day, settings, schedule, expandShutdown }) {
-  const { done, total } = countTasks(schedule, day);
   const minimum = day.mode === 'sick' ? null : minimumStatus(day, dayKey, settings);
   const summary = [
-    `Задач отмечено: ${done} из ${total}`,
+    tasksLine(schedule, day),
     minimum && (minimum.met ? 'минимум выполнен ✓' : 'минимум пока не выполнен'),
   ].filter(Boolean).join(' · ');
 
@@ -45,7 +44,6 @@ export function shutdownCard({ days, dayKey, day, settings, schedule, edit, expa
     );
   }
 
-  const { done, total } = countTasks(schedule, day);
   const minimum = day.mode === 'sick' ? null : minimumStatus(day, dayKey, settings);
 
   return h('section', { class: 'card shutdown' },
@@ -56,7 +54,7 @@ export function shutdownCard({ days, dayKey, day, settings, schedule, edit, expa
 
     h('ul', { class: 'shutdown__summary' },
       minimum && h('li', {}, minimum.met ? 'Минимум выполнен ✓' : 'Минимум не выполнен — завтра новый день'),
-      h('li', {}, `Задач отмечено: ${done} из ${total}`),
+      h('li', {}, tasksLine(schedule, day)),
       day.mode !== 'sick' && h('li', {}, `Откликов сегодня: ${day.applications ?? 0}`),
     ),
 
@@ -122,5 +120,12 @@ function lessonFields(lesson, editTomorrow, boundary) {
 function countTasks(schedule, day) {
   const ids = new Set(schedule.blocks.flatMap((block) => block.tasks.map((task) => task.id)));
   const done = [...ids].filter((id) => day.done?.[id]).length;
-  return { done, total: ids.size };
+  const skipped = [...ids].filter((id) => isSkipped(day, id)).length;
+  return { done, total: ids.size - skipped, skipped };
+}
+
+/** "Задач отмечено: 5 из 7, пропущено 1" */
+function tasksLine(schedule, day) {
+  const { done, total, skipped } = countTasks(schedule, day);
+  return `Задач отмечено: ${done} из ${total}${skipped ? `, пропущено ${skipped}` : ''}`;
 }

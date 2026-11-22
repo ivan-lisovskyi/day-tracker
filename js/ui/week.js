@@ -7,7 +7,7 @@ import { plural } from './format.js';
 import * as store from '../state/store.js';
 import { addDays, dayKeyFor, weekStart } from '../logic/time.js';
 import { buildWeekStats } from '../logic/weekStats.js';
-import { formatDayShort, formatWeekRange, weekToText } from '../logic/exportText.js';
+import { forgivenNote, formatDayShort, formatWeekRange, weekToText } from '../logic/exportText.js';
 
 export const title = 'Неделя';
 
@@ -97,7 +97,8 @@ function summaryCard({ totals: t, goals, streaks }) {
     ),
     h('p', { class: 'week-times' }, h('span', {}, 'Дней закрыто вечером ', h('strong', {}, outOf(t.daysClosed, t.daysElapsed)))),
     streaks && h('p', { class: 'streak' },
-      `Серия минимума: ${streaks.minimum} ${plural(streaks.minimum, 'день', 'дня', 'дней')}`),
+      `Серия минимума: ${streaks.minimum} ${plural(streaks.minimum, 'день', 'дня', 'дней')}`,
+      streaks.forgiven.minimum > 0 && h('small', { class: 'streak__note' }, forgivenNote(streaks.forgiven.minimum, ' · '))),
   );
 }
 
@@ -190,7 +191,7 @@ function dayStatus(day) {
 // ---------- habits ----------
 
 function habitsCard(stats) {
-  const habits = stats.habits.filter((habit) => habit.applicable > 0);
+  const habits = stats.habits.filter((habit) => habit.applicable > 0 || habit.skipped > 0);
 
   return h('section', { class: 'card' },
     h('h2', { class: 'card__title' }, 'Привычки'),
@@ -200,7 +201,7 @@ function habitsCard(stats) {
         h('div', { class: 'habit__cells habit__cells--header', 'aria-hidden': 'true' },
           WEEKDAY_LETTERS.map((letter) => h('span', {}, letter))),
         h('ul', { class: 'habits' }, habits.map((habit) => habitRow(habit, stats))),
-        h('p', { class: 'muted hint' }, '✓ сделано · ✗ пропущено · пунктир — сегодня, ещё не отмечено'),
+        h('p', { class: 'muted hint' }, '✓ сделано · ✗ не сделано · – пропущено осознанно · пунктир — сегодня, ещё не отмечено'),
       ],
   );
 }
@@ -212,12 +213,14 @@ function habitRow(habit, stats) {
       h('span', { class: 'habit__title' }, habit.title),
       h('span', { class: 'habit__count' },
         `${habit.done}/${habit.applicable}`,
-        streak ? h('small', {}, ` · серия ${streak}`) : null),
+        streak ? h('small', {}, ` · серия ${streak}${forgivenNote(stats.streaks.forgiven.habits[habit.id], ' (', ')')}`) : null),
     ),
     h('div', { class: 'habit__cells' },
       stats.days.map((day) => {
         const value = day.habits[habit.id];
-        const [symbol, modifier, text] = cellLook(value, day.isToday);
+        const [symbol, modifier, text] = day.skipped.includes(habit.id)
+          ? ['–', 'skipped', 'пропущено осознанно']
+          : cellLook(value, day.isToday);
         return h('span', {
           class: `cell cell--${modifier}`,
           title: `${formatDayShort(day.date, day.weekday)}: ${text}`,
@@ -229,6 +232,6 @@ function habitRow(habit, stats) {
 /** Today is still in progress: an unchecked habit is "pending", not "missed". */
 function cellLook(value, isToday) {
   if (value === true) return ['✓', 'done', 'сделано'];
-  if (value === false) return isToday ? ['', 'pending', 'ещё не отмечено'] : ['✗', 'missed', 'пропущено'];
+  if (value === false) return isToday ? ['', 'pending', 'ещё не отмечено'] : ['✗', 'missed', 'не сделано'];
   return ['', 'none', 'не нужно'];
 }

@@ -54,7 +54,9 @@ export function weekToText(stats) {
     lines.push(`- Самочувствие (чек-инов: ${t.checkins}): сон ${t.averageSleep}/5, энергия ${t.averageEnergy}/5`);
   }
   lines.push(`- Дней закрыто вечером: ${t.daysClosed} из ${t.daysElapsed}`);
-  if (stats.streaks) lines.push(`- Серия минимума сейчас: ${stats.streaks.minimum} дн.`);
+  if (stats.streaks) {
+    lines.push(`- Серия минимума сейчас: ${stats.streaks.minimum} дн.${forgivenNote(stats.streaks.forgiven.minimum, ' (', ')')}`);
+  }
   lines.push('');
 
   lines.push('ПО ДНЯМ');
@@ -65,13 +67,27 @@ export function weekToText(stats) {
 
   lines.push('ПРИВЫЧКИ (сделано / из скольких дней)');
   for (const habit of stats.habits) {
-    if (habit.applicable === 0) continue;
+    if (habit.applicable === 0 && !habit.skipped) continue;
     const streakDays = stats.streaks?.habits[habit.id] ?? 0;
-    const streak = streakDays > 0 ? `, серия ${streakDays}` : '';
-    lines.push(`- ${habit.title}: ${habit.done}/${habit.applicable}${streak}`);
+    const streak = streakDays > 0
+      ? `, серия ${streakDays}${forgivenNote(stats.streaks.forgiven.habits[habit.id], ' (', ')')}`
+      : '';
+    const skips = habit.skipped > 0 ? `, пропусков ${habit.skipped}` : '';
+    lines.push(`- ${habit.title}: ${habit.done}/${habit.applicable}${skips}${streak}`);
   }
 
   return lines.join('\n');
+}
+
+/** "1 срыв прощён" / "2 срыва прощено", wrapped in `before`/`after`; empty when nothing was forgiven. */
+export function forgivenNote(forgiven, before = '', after = '') {
+  if (!forgiven) return '';
+  const mod10 = forgiven % 10;
+  const mod100 = forgiven % 100;
+  const text = mod10 === 1 && mod100 !== 11
+    ? `${forgiven} срыв прощён`
+    : `${forgiven} ${mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'срыва' : 'срывов'} прощено`;
+  return `${before}${text}${after}`;
 }
 
 function dayLines(day, titles) {
@@ -101,6 +117,7 @@ function dayLines(day, titles) {
   if (day.focus) lines.push(`  главное дня: ${day.focus}`);
   if (done.length) lines.push(`  сделано: ${done.join('; ')}`);
   if (missed.length) lines.push(`  ${day.isToday ? 'пока не отмечено' : 'не сделано'}: ${missed.join('; ')}`);
+  if (day.skipped.length) lines.push(`  пропущено осознанно: ${day.skipped.map((id) => titles[id]).join('; ')}`);
   if (day.note) lines.push(`  заметка: ${day.note.replace(/\s+/g, ' ')}`);
   return lines;
 }

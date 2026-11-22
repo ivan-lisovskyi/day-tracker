@@ -97,3 +97,12 @@ test('a stamp that parseStamp cannot read is dropped, and a block without tasks 
   assert.deepEqual(result.settings.blocks[0].tasks, []);
   assert.deepEqual(result.days['2026-11-20'], { bedAt: '2026-11-21T00:50' });
 });
+
+test('a broken "skipped" map is dropped, a valid one is kept', () => {
+  const data = createInitialData();
+  data.days['2026-11-20'] = { skipped: 'walk' };
+  data.days['2026-11-21'] = { skipped: { walk: true } };
+  const result = migrate(data);
+  assert.equal('skipped' in result.days['2026-11-20'], false);
+  assert.deepEqual(result.days['2026-11-21'].skipped, { walk: true });
+});

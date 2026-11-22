@@ -438,6 +438,35 @@ label.card__title {
   color: var(--accent-text);
 }
 
+/* A schedule task: the checkbox row with a quiet "пропустить" / "вернуть" on the right. */
+.task-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-line > .check,
+.task-line > .status-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.link-btn.link-btn--quiet { /* two classes: must win over .link-btn further down */
+  flex: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.status-row.is-skipped .check__text {
+  color: var(--text-muted);
+}
+
+.streak__note {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .status-row.is-done .status-row__icon {
   border: 0;
   background: var(--success);
@@ -870,6 +899,7 @@ label.card__title {
 .cell--done { background: color-mix(in srgb, var(--success) 22%, transparent); color: var(--success); }
 .cell--missed { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
 .cell--none { background: var(--surface-2); opacity: 0.5; }
+.cell--skipped { background: var(--surface-2); color: var(--text-muted); }
 .cell--pending { border: 1px dashed var(--text-muted); background: transparent; }
 
 /* ---------- Settings ---------- */

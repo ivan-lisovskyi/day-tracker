@@ -161,3 +161,14 @@ test('a sick day never counts as a miss, so sleep streaks survive it', () => {
   assert.equal(habitStatus('bed', MONDAY, days, settings), null);
   assert.equal(habitStatus('phone-away', MONDAY, days, settings), null);
 });
+
+test('a skipped task is neutral unless it was done after all; a skipped workout is not carried over', () => {
+  const days = {
+    [FRIDAY]: { done: {}, skipped: { workout: true, walk: true } }, // Friday is a kettlebell day
+    [SATURDAY]: { done: { walk: true }, skipped: { walk: true } },
+  };
+  assert.equal(habitStatus('walk', FRIDAY, days, settings), null);
+  assert.equal(habitStatus('workout', FRIDAY, days, settings), null);
+  assert.equal(habitStatus('walk', SATURDAY, days, settings), true); // done wins
+  assert.equal(hasPendingWorkout(SATURDAY, days, settings), false);
+});

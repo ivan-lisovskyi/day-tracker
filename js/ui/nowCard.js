@@ -3,7 +3,7 @@
  * and its checkboxes, plus what comes next — so the day's main action needs no scrolling.
  */
 import { h } from './dom.js';
-import { checkRow } from './rows.js';
+import { taskRow } from './rows.js';
 import { formatDuration, formatRange } from './format.js';
 import { formatMinutes } from '../logic/time.js';
 import { nowAndNext } from '../logic/schedule.js';
@@ -48,14 +48,7 @@ export function nowCard({ day, schedule, nowMinutes, edit }) {
       'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': Math.round(progress * 100),
     }, h('div', { class: 'progress__bar', style: `width: ${Math.round(progress * 100)}%` })),
     h('p', { class: 'muted hint' }, `Осталось ${formatDuration(remainingMin)}`),
-    current.tasks.map((task) => checkRow({
-      checked: day.done?.[task.id] === true,
-      label: task.title,
-      onChange: (checked) => edit((d) => {
-        if (checked) d.done[task.id] = true;
-        else delete d.done[task.id];
-      }),
-    })),
+    current.tasks.map((task) => taskRow(task, day, edit)),
     nextLine,
   );
 }

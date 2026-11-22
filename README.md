@@ -69,6 +69,8 @@ npm test           # node --test, no libraries
 - [x] "Сейчас" card: the current block with time left, its checkboxes and what comes next
 - [x] Morning check-in (sleep and energy 1–5); a low rating suggests minimum mode
 - [x] Evening "close the day": review, a note, and tomorrow's mode, driving lesson and one main thing
+- [x] Skip instead of fail: a task can be skipped for the day without breaking its streak
+- [x] Forgiven slip: one missed day in 7 does not reset a streak
 - [ ] Stage 2: "Adjust plan with AI" via a Cloudflare Worker proxy to the Claude API
 
 ## License

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildWeekStats } from '../js/logic/weekStats.js';
-import { formatWeekRange, weekToText } from '../js/logic/exportText.js';
+import { forgivenNote, formatWeekRange, weekToText } from '../js/logic/exportText.js';
 import { createDefaultSettings } from '../js/state/defaults.js';
 
 const MONDAY = '2026-11-16';
@@ -49,6 +49,7 @@ test('weekly totals', () => {
     averageSleep: null,
     averageEnergy: null,
     daysClosed: 0,
+    skippedTasks: 0,
   });
 });
 
@@ -169,4 +170,37 @@ test('a lesson planned for a day that turned out sick is not counted', () => {
   const stats = buildWeekStats(data, MONDAY, TODAY);
   assert.equal(stats.totals.drivingLessons, 0);
   assert.equal(weekToText(stats).includes('вождение'), false);
+});
+
+test('skipped tasks are listed per day, counted per habit and shown in the export', () => {
+  const data = sampleData();
+  data.days['2026-11-20'].skipped = { walk: true, cbr: true }; // cbr was done on Friday: not a skip
+  const stats = buildWeekStats(data, MONDAY, TODAY);
+  const fri = stats.days[4];
+
+  assert.deepEqual(fri.skipped, ['walk']);
+  assert.equal(fri.habits.walk, null);
+  assert.equal(stats.habits.find((h) => h.id === 'walk').skipped, 1);
+  assert.equal(stats.totals.skippedTasks, 1);
+
+  const text = weekToText(stats);
+  assert.ok(text.includes('  пропущено осознанно: Прогулка 20–30 мин'), text);
+  assert.ok(/Прогулка 20–30 мин: \d\/\d, пропусков 1/.test(text), text);
+});
+
+test('a forgiven miss is reported with the streak', () => {
+  const data = sampleData();
+  data.days['2026-11-19'] = { mode: 'normal', wakeAt: '2026-11-19T09:00', minimum: { cbr10: true }, applications: 1, done: {} };
+  data.days['2026-11-17'].mode = 'normal'; // Tue: a plain missed day between Mon and Thu (Wed is sick)
+  const stats = buildWeekStats(data, MONDAY, TODAY);
+  assert.equal(stats.streaks.minimum, 3); // Fri, Thu, Mon
+  assert.equal(stats.streaks.forgiven.minimum, 1);
+  assert.ok(weekToText(stats).includes('- Серия минимума сейчас: 3 дн. (1 срыв прощён)'));
+});
+
+test('forgiven note: Russian plural forms, empty when nothing was forgiven', () => {
+  assert.equal(forgivenNote(0, ' (', ')'), '');
+  assert.equal(forgivenNote(1), '1 срыв прощён');
+  assert.equal(forgivenNote(2, ' · '), ' · 2 срыва прощено');
+  assert.equal(forgivenNote(5), '5 срывов прощено');
 });

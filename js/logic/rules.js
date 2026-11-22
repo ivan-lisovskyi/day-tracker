@@ -103,7 +103,8 @@ export function hasPendingWorkout(dayKey, days, settings, depth = 0) {
   const prev = days[prevKey];
   if (!prev || prev.mode === 'sick') return false;
   if (!isWorkoutPlanned(prevKey, days, settings, depth + 1)) return false;
-  return !prev.done?.workout;
+  return !prev.done?.workout && !isSkipped(prev, 'workout'); // a skipped workout is let go, not carried
+
 }
 
 // ---------- late night → suggest "minimum" ----------
@@ -155,9 +156,18 @@ export function listHabits(settings) {
 }
 
 /**
+ * A task the user consciously skipped for the day ("пропустить"). Neutral for streaks.
+ * Doing the task after all wins over the skip.
+ */
+export function isSkipped(day, habitId) {
+  return day?.skipped?.[habitId] === true && day.done?.[habitId] !== true;
+}
+
+/**
  * true = done, false = missed, null = not applicable that day (doesn't break a streak).
  * - sick days: only sleep habits can be done, and nothing counts as missed;
  * - minimum days: undone non-sleep habits are neutral;
+ * - a skipped task is neutral;
  * - workout/stretch: only on the days they are planned.
  */
 export function habitStatus(habitId, dayKey, days, settings) {
@@ -176,6 +186,7 @@ export function habitStatus(habitId, dayKey, days, settings) {
   else if (habitId === 'shutdown') done = Boolean(day.closedAt);
   else done = day.done?.[habitId] === true;
 
+  if (!done && isSkipped(day, habitId)) return null;
   if (!done && day.mode === 'sick') return null; // "streaks do not break while sick"
   if (!done && day.mode === 'minimum' && !isSleep) return null;
   return done;

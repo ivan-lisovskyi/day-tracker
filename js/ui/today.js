@@ -7,7 +7,8 @@
  */
 import { createRenderer, h } from './dom.js';
 import { formatDayLabel, formatDuration, formatRange, plural } from './format.js';
-import { checkRow, statusRow } from './rows.js';
+import { checkRow, statusRow, taskRow } from './rows.js';
+import { forgivenNote } from '../logic/exportText.js';
 import { nowCard } from './nowCard.js';
 import { checkinCard, checkinSummary, isCheckinEditing } from './checkin.js';
 import { shutdownCard, shutdownPrompt } from './shutdown.js';
@@ -206,7 +207,8 @@ function minimumCard({ settings, days, dayKey, day, mode, edit }) {
       nested: true,
       onChange: (checked) => edit((d) => { d.minimum.code15 = checked; }),
     }),
-    h('p', { class: 'streak' }, `Серия: ${streak} ${plural(streak, 'день', 'дня', 'дней')}`),
+    h('p', { class: 'streak' }, `Серия: ${streak.count} ${plural(streak.count, 'день', 'дня', 'дней')}`,
+      streak.forgiven > 0 && h('small', { class: 'streak__note' }, forgivenNote(streak.forgiven, ' · '))),
   );
 }
 
@@ -379,14 +381,7 @@ function blockItem(block, tasks, isCurrent, day, edit) {
     ),
     chips.length > 0 && h('div', { class: 'block__chips' }, chips),
     block.details && h('p', { class: 'block__details' }, block.details),
-    tasks.map((task) => checkRow({
-      checked: day.done?.[task.id] === true,
-      label: task.title,
-      onChange: (checked) => edit((d) => {
-        if (checked) d.done[task.id] = true;
-        else delete d.done[task.id];
-      }),
-    })),
+    tasks.map((task) => taskRow(task, day, edit)),
   );
 }
 

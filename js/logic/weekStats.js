@@ -7,11 +7,11 @@
  */
 import { formatMinutes, isoWeekday, stampTime, weekKeys } from './time.js';
 import {
-  bedMinutes, habitStatus, isDayCounted, isWorkoutPlanned, listHabits, minimumStatus, wakeMinutes,
+  bedMinutes, habitStatus, isDayCounted, isSkipped, isWorkoutPlanned, listHabits, minimumStatus, wakeMinutes,
 } from './rules.js';
 import { habitStreak, minimumStreak } from './streaks.js';
 
-export const WEEK_STATS_VERSION = 2; // v2: check-ins, focus of the day, closed days
+export const WEEK_STATS_VERSION = 3; // v3: skipped tasks, forgiven misses in streaks
 
 /**
  * @param {object} data      { settings, days }
@@ -32,6 +32,10 @@ export function buildWeekStats(data, mondayKey, todayKey) {
   const bedTimes = past.map((d) => bedMinutes(days[d.date], d.date)).filter((m) => m != null);
   const checkins = past.map((d) => d.checkin).filter(Boolean);
   const isCurrentWeek = keys.includes(todayKey);
+  const minimum = isCurrentWeek ? minimumStreak(todayKey, days, settings) : null;
+  const habitStreaks = isCurrentWeek
+    ? habits.map((habit) => [habit.id, habitStreak(habit.id, todayKey, days, settings)])
+    : [];
 
   return {
     version: WEEK_STATS_VERSION,
@@ -58,6 +62,7 @@ export function buildWeekStats(data, mondayKey, todayKey) {
       averageSleep: averageRating(checkins.map((c) => c.sleep)),
       averageEnergy: averageRating(checkins.map((c) => c.energy)),
       daysClosed: past.filter((d) => d.closed).length,
+      skippedTasks: past.reduce((sum, d) => sum + d.skipped.length, 0),
     },
     habits: habits.map((habit) => {
       const statuses = past.map((d) => d.habits[habit.id]);
@@ -66,13 +71,19 @@ export function buildWeekStats(data, mondayKey, todayKey) {
         title: habit.title,
         done: statuses.filter((s) => s === true).length,
         applicable: statuses.filter((s) => s !== null).length,
+        skipped: past.filter((d) => d.skipped.includes(habit.id)).length,
       };
     }),
     streaks: isCurrentWeek
       ? {
         asOf: todayKey,
-        minimum: minimumStreak(todayKey, days, settings),
-        habits: Object.fromEntries(habits.map((h) => [h.id, habitStreak(h.id, todayKey, days, settings)])),
+        minimum: minimum.count,
+        habits: Object.fromEntries(habitStreaks.map(([id, streak]) => [id, streak.count])),
+        // Misses inside each streak that were forgiven (one slip a week does not reset a streak).
+        forgiven: {
+          minimum: minimum.forgiven,
+          habits: Object.fromEntries(habitStreaks.map(([id, streak]) => [id, streak.forgiven])),
+        },
       }
       : null,
     days: dayStats,
@@ -83,7 +94,7 @@ function buildDay(key, days, settings, habits, todayKey, firstKey) {
   const day = days[key];
   const isFuture = key > todayKey; // ISO dates compare correctly as strings
   const isBeforeStart = key < firstKey;
-  const skipped = isFuture || isBeforeStart; // not evaluated
+  const skippedDay = isFuture || isBeforeStart; // not evaluated
 
   return {
     date: key,
@@ -93,18 +104,19 @@ function buildDay(key, days, settings, habits, todayKey, firstKey) {
     isBeforeStart,
     hasRecord: Boolean(day),
     mode: day?.mode ?? null,
-    counted: skipped ? null : isDayCounted(day, key, settings),
+    counted: skippedDay ? null : isDayCounted(day, key, settings),
     minimum: day ? minimumStatus(day, key, settings) : null,
     wakeAt: day?.wakeAt ? stampTime(day.wakeAt) : null,
     bedAt: day?.bedAt ? stampTime(day.bedAt) : null,
     applications: day?.applications ?? 0,
     drivingLesson: day?.mode === 'sick' ? null : day?.drivingLesson ?? null, // no lesson while sick
     workout: isWorkoutPlanned(key, days, settings) ? 'workout' : 'stretch',
-    habits: Object.fromEntries(habits.map((h) => [h.id, skipped ? null : habitStatus(h.id, key, days, settings)])),
+    habits: Object.fromEntries(habits.map((h) => [h.id, skippedDay ? null : habitStatus(h.id, key, days, settings)])),
     note: day?.note?.trim() || null,
     checkin: day?.checkin ?? null,
     focus: day?.focus?.trim() || null,
     closed: Boolean(day?.closedAt),
+    skipped: skippedDay ? [] : habits.filter((h) => isSkipped(day, h.id)).map((h) => h.id), // habit ids
   };
 }
 

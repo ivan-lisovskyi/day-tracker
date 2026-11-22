@@ -153,6 +153,7 @@ function normalizeDay(day) {
   if ('applications' in result && !isCount(result.applications)) result.applications = 0;
   if ('note' in result && !isString(result.note)) result.note = '';
   for (const key of ['done', 'minimum']) if (key in result && !isPlainObject(result[key])) result[key] = {};
+  if ('skipped' in result && !isPlainObject(result.skipped)) delete result.skipped;
   if ('drivingLesson' in result && result.drivingLesson !== null) {
     const lesson = result.drivingLesson;
     if (!isPlainObject(lesson) || !isTime(lesson.start) || !isTime(lesson.end)) result.drivingLesson = null;
