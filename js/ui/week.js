@@ -8,10 +8,19 @@ import * as store from '../state/store.js';
 import { addDays, dayKeyFor, weekStart } from '../logic/time.js';
 import { buildWeekStats } from '../logic/weekStats.js';
 import { forgivenNote, formatDayShort, formatWeekRange, weekToText } from '../logic/exportText.js';
+import {
+  applyProposal, buildPlanContext, describeProposal, revertProposal, sanitizeProposals,
+} from '../logic/aiPlan.js';
+import { requestPlan } from '../aiClient.js';
+import { isAiConfigured, loadPlanSession, savePlanSession } from '../state/aiConfig.js';
 
 export const title = 'Неделя';
 
 const WEEKDAY_LETTERS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+// "Подстроить план с ИИ": the request state outlives a tab switch (the answer takes a few seconds).
+let aiState = { status: 'idle' }; // { status: 'idle' | 'loading' } | { status: 'error', message }
+let redrawWeek = null; // redraw of the Week screen that is on screen now, if any
 
 export function render(root) {
   let weekOffset = 0; // 0 = this week, -1 = last week…
@@ -27,6 +36,7 @@ export function render(root) {
       navCard(stats, weekOffset, (delta) => { weekOffset += delta; exportState = null; redraw(); }),
       summaryCard(stats),
       exportCard(stats, exportState, async () => { exportState = await copyWeek(stats); redraw(); }),
+      aiCard(stats, data.settings, redraw),
       daysCard(stats),
       habitsCard(stats),
     );
@@ -39,10 +49,12 @@ export function render(root) {
     if (document.visibilityState === 'visible') redraw();
   };
   draw();
+  redrawWeek = redraw;
   const unsubscribe = store.subscribe(redraw);
   document.addEventListener('visibilitychange', onVisible);
   return () => {
     active = false;
+    if (redrawWeek === redraw) redrawWeek = null;
     unsubscribe();
     document.removeEventListener('visibilitychange', onVisible);
   };
@@ -124,6 +136,135 @@ function exportCard(stats, state, onCopy) {
     state?.status === 'manual' && h('div', { class: 'manual-copy' },
       h('p', { class: 'hint hint--warning' }, 'Не получилось скопировать автоматически. Выдели текст и скопируй вручную:'),
       h('textarea', { class: 'input textarea manual-copy__text', rows: 10, readonly: true, onfocus: (e) => e.target.select() }, state.text),
+    ),
+  );
+}
+
+// ---------- AI review ----------
+
+async function askAi(stats) {
+  aiState = { status: 'loading' };
+  redrawWeek?.();
+  try {
+    const reply = await requestPlan({ stats, plan: buildPlanContext(store.getData().settings) });
+    savePlanSession({
+      weekStart: stats.week.start,
+      review: reply.review,
+      model: typeof reply.model === 'string' ? reply.model : null,
+      proposals: sanitizeProposals(reply.proposals).map((proposal) => ({ ...proposal, status: 'pending' })),
+    });
+    aiState = { status: 'idle' };
+  } catch (error) {
+    aiState = { status: 'error', message: error.message };
+  }
+  redrawWeek?.();
+}
+
+/** Changes the saved review and redraws; `change` gets the session and may return false to do nothing. */
+function updateSession(redraw, change) {
+  const session = loadPlanSession();
+  if (!session || change(session) === false) return;
+  savePlanSession(session);
+  redraw();
+}
+
+function acceptProposal(index, redraw) {
+  updateSession(redraw, (session) => {
+    const proposal = session.proposals[index];
+    let shown = null;
+    let undo = null;
+    store.update((draft) => {
+      shown = describeProposal(proposal, draft.settings);
+      undo = applyProposal(draft.settings, proposal);
+    }, { notify: false });
+    if (!undo) return false; // stale: nothing was changed
+    Object.assign(proposal, { status: 'accepted', undo, shown: { title: shown.title, from: shown.from, to: shown.to } });
+    return true;
+  });
+}
+
+/** "Вернуть как было": undoes every accepted proposal, newest first; they become pending again. */
+function undoAccepted(redraw) {
+  updateSession(redraw, (session) => {
+    const accepted = session.proposals.filter((proposal) => proposal.status === 'accepted').reverse();
+    store.update((draft) => {
+      for (const proposal of accepted) revertProposal(draft.settings, proposal.undo);
+    }, { notify: false });
+    for (const proposal of accepted) {
+      proposal.status = 'pending';
+      delete proposal.undo;
+      delete proposal.shown;
+    }
+  });
+}
+
+function aiCard(stats, settings, redraw) {
+  const session = loadPlanSession();
+  if (session?.weekStart === stats.week.start) return aiReviewCard(session, settings, redraw);
+
+  const loading = aiState.status === 'loading';
+  const configured = isAiConfigured();
+  const empty = stats.days.every((day) => !day.hasRecord || day.isFuture);
+  const hint = !configured
+    ? ['Сначала укажи адрес сервера и код доступа в ', h('a', { href: '#settings', class: 'link' }, 'настройках'), '.']
+    : empty
+      ? 'В этой неделе пока нет данных для разбора.'
+      : 'Отправит итоги этой недели, заметки и чек-ины на твой сервер и в Claude. План изменится, только если ты нажмёшь «Принять».';
+
+  return h('section', { class: 'card' },
+    h('h2', { class: 'card__title' }, 'Разбор недели с ИИ'),
+    aiState.status === 'error' && h('p', { class: 'hint hint--warning hint--top', role: 'alert' }, aiState.message),
+    h('button', {
+      class: 'btn btn--block', disabled: loading || !configured || empty, onclick: () => askAi(stats),
+    }, loading ? 'Claude разбирает неделю…' : 'Подстроить план с ИИ'),
+    h('p', { class: 'muted hint' }, hint),
+  );
+}
+
+function aiReviewCard(session, settings, redraw) {
+  const rows = session.proposals.map((proposal, index) => {
+    if (proposal.status === 'rejected') return null;
+    if (proposal.status === 'accepted') return proposalRow(proposal, proposal.shown, null);
+    const described = describeProposal(proposal, settings);
+    return described && proposalRow(proposal, described, {
+      accept: () => acceptProposal(index, redraw),
+      reject: () => updateSession(redraw, (s) => { s.proposals[index].status = 'rejected'; }),
+    });
+  });
+  const pending = session.proposals.filter((proposal) => proposal.status === 'pending');
+  const stale = pending.filter((proposal) => !describeProposal(proposal, settings)).length;
+  const accepted = session.proposals.some((proposal) => proposal.status === 'accepted');
+
+  return h('section', { class: 'card ai-review' },
+    h('h2', { class: 'card__title' }, 'Разбор недели с ИИ'),
+    h('p', { class: 'ai-review__text' }, session.review),
+    session.proposals.length === 0 && h('p', { class: 'muted hint' }, 'Менять план Claude не предложил.'),
+    h('ul', { class: 'proposals' }, rows),
+    stale > 0 && h('p', { class: 'muted hint' },
+      `Не показано предложений: ${stale} — они не подходят к текущему плану (например, блок наехал бы на соседний).`),
+    h('div', { class: 'ai-review__actions' },
+      accepted && h('button', { class: 'btn', onclick: () => undoAccepted(redraw) }, 'Вернуть как было'),
+      h('button', {
+        class: 'btn btn--ghost',
+        onclick: () => { savePlanSession(null); aiState = { status: 'idle' }; redraw(); },
+      }, 'Закрыть разбор'),
+    ),
+  );
+}
+
+/** One proposal: what changes, why, and the two buttons (none once it is accepted). */
+function proposalRow(proposal, shown, actions) {
+  return h('li', { class: `proposal${actions ? '' : ' is-accepted'}` },
+    h('div', { class: 'proposal__head' },
+      h('span', { class: 'proposal__title' }, shown.title),
+      !actions && h('span', { class: 'badge badge--success' }, 'Принято ✓'),
+    ),
+    h('p', { class: 'proposal__change' },
+      h('span', { class: 'proposal__from' }, shown.from), ' → ', h('strong', {}, shown.to)),
+    proposal.reason && h('p', { class: 'proposal__reason' }, proposal.reason),
+    actions && h('div', { class: 'proposal__actions' },
+      h('button', { class: 'btn btn--primary', onclick: actions.accept }, 'Принять'),
+      h('button', { class: 'btn', onclick: actions.reject }, 'Отклонить'),
     ),
   );
 }

@@ -9,7 +9,7 @@
  * Releasing a change: bump VERSION here and "version" in package.json (a test checks they match).
  * When adding a file to the app, add it to ASSETS (a test checks nothing is missing).
  */
-const VERSION = '0.11.0';
+const VERSION = '0.12.0';
 const CACHE_NAME = `day-tracker-${VERSION}`;
 
 const ASSETS = [
@@ -21,7 +21,9 @@ const ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon.svg',
+  './js/aiClient.js',
   './js/app.js',
+  './js/logic/aiPlan.js',
   './js/logic/backup.js',
   './js/logic/exportText.js',
   './js/logic/rules.js',
@@ -30,6 +32,7 @@ const ASSETS = [
   './js/logic/time.js',
   './js/logic/weekStats.js',
   './js/pwa.js',
+  './js/state/aiConfig.js',
   './js/state/defaults.js',
   './js/state/schema.js',
   './js/state/store.js',

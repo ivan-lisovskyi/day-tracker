@@ -4,9 +4,9 @@ An offline-first PWA for keeping a daily routine and habits: a timeline of the d
 
 **Live app:** <https://ivan-lisovskyi.github.io/day-tracker/>
 
-Built for one real user (me) on iPhone. The UI is in Russian. All data stays on the device (localStorage); nothing is sent anywhere.
+Built for one real user (me) on iPhone. The UI is in Russian. All data stays on the device (localStorage). The only thing that ever leaves it is the optional AI review: when you tap "Подстроить план с ИИ", that week's summary (including notes and check-ins) goes to your own Cloudflare Worker and from there to the Claude API.
 
-> **Status:** stage 1 is feature-complete and deployed on GitHub Pages. Stage 2 (AI plan adjustment) is next.
+> **Status:** stage 1 is feature-complete and deployed on GitHub Pages. Stage 2 (AI plan adjustment) is built: the app side is live, the worker is deployed separately (see [worker/README.md](worker/README.md)).
 
 ## Install on iPhone
 
@@ -52,6 +52,14 @@ For other static hosts, `npm run build` copies only the app files into `dist/` (
 npm test           # node --test, no libraries
 ```
 
+## AI review ("Подстроить план с ИИ")
+
+On the Week screen the app sends the week's statistics and the current plan to a small Cloudflare Worker ([worker/](worker/)), which calls Claude (`claude-haiku-5-5`) and returns a short review plus up to four proposals: a goal time, the weekly applications goal, workouts per week, or the time of one routine block.
+
+- The API key lives only in the worker. The app holds the worker address and a personal access code (Settings → "ИИ-помощник"); they are stored outside the main data, so they never end up in a backup file.
+- The model only proposes. `js/logic/aiPlan.js` checks every proposal against the current plan (ranges, order of the day, no overlapping blocks) before it is shown and again before it is applied; each one is applied only on "Принять", and "Вернуть как было" undoes them.
+- The worker accepts requests only from the published app, only with the access code, and only up to a daily limit.
+
 ## Stack
 
 - **Vanilla JavaScript (ES modules) + plain CSS**, no framework and no bundler — the code the browser runs is the code in this repo.
@@ -72,7 +80,7 @@ npm test           # node --test, no libraries
 - [x] Skip instead of fail: a task can be skipped for the day without breaking its streak
 - [x] Forgiven slip: one missed day in 7 does not reset a streak
 - [x] Workout goal "N times a week" on any days, as an alternative to fixed weekdays
-- [ ] Stage 2: "Adjust plan with AI" via a Cloudflare Worker proxy to the Claude API
+- [x] Stage 2: "Adjust plan with AI" — a Cloudflare Worker keeps the Claude API key and returns a review of the week with plan proposals that are accepted one by one (and can be undone)
 
 ## License
 

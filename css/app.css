@@ -1282,3 +1282,79 @@ select.input {
 .card > .hint + .field {
   margin-top: 12px;
 }
+
+/* ---------- AI review of the week ---------- */
+
+.link {
+  color: var(--accent);
+}
+
+.ai-review__text {
+  margin: 0 0 12px;
+  white-space: pre-line;
+}
+
+.proposals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.proposals:empty {
+  display: none;
+}
+
+.proposal {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.proposal.is-accepted {
+  border-color: color-mix(in srgb, var(--success) 50%, var(--border));
+}
+
+.proposal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.proposal__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.proposal__change {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+.proposal__from {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.proposal__reason {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.proposal__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ai-review__actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}

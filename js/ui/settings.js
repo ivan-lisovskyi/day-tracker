@@ -6,6 +6,8 @@ import { createRenderer, h } from './dom.js';
 import { formatDayLabel, formatRange } from './format.js';
 import { restoreBackup, saveBackup } from './backup.js';
 import { checkForUpdate, installedVersion, isStoragePersistent } from '../pwa.js';
+import { getAiConfig, setAiConfig } from '../state/aiConfig.js';
+import { normalizeEndpoint } from '../aiClient.js';
 import * as store from '../state/store.js';
 import { toDayMinutes, stampTime, parseStamp } from '../logic/time.js';
 
@@ -45,6 +47,7 @@ export function render(root) {
       goalsCard(settings),
       workoutCard(settings),
       blocksCard(settings, openBlocks),
+      aiSettingsCard(() => renderer.request()),
       backupCard(settings, persistent, setNotice),
       aboutCard(version, setNotice),
     ];
@@ -273,6 +276,47 @@ function backupCard(s, persistent, setNotice) {
     }, 'Сохранить бэкап (JSON)'),
     h('button', { class: 'btn btn--block', onclick: () => fileInput.click() }, 'Восстановить из файла…'),
     fileInput,
+  );
+}
+
+// ---------- AI helper ----------
+
+let endpointError = false; // the last typed server address was not a usable URL
+
+/** Server address and access code. Kept outside the main data, so they never end up in a backup file. */
+function aiSettingsCard(refresh) {
+  const config = getAiConfig();
+  const plainText = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' };
+
+  return h('section', { class: 'card' },
+    h('h2', { class: 'card__title' }, 'ИИ-помощник'),
+    h('p', { class: 'muted hint hint--top' },
+      'Кнопка «Подстроить план с ИИ» на экране «Неделя» отправляет итоги недели, заметки и чек-ины на твой сервер, а он — в Claude. Только по нажатию и больше никуда.'),
+    h('label', { class: 'field' },
+      h('span', {}, 'Адрес сервера'),
+      h('input', {
+        ...plainText, type: 'url', inputmode: 'url', class: 'input', value: config.endpoint,
+        placeholder: 'https://day-tracker-ai.….workers.dev',
+        onchange: (e) => {
+          const text = e.target.value.trim();
+          const endpoint = text ? normalizeEndpoint(text) : '';
+          endpointError = endpoint === null;
+          if (!endpointError) setAiConfig({ endpoint });
+          refresh();
+        },
+      }),
+      endpointError && h('small', { class: 'field__hint hint--warning' }, 'Адрес должен начинаться с https://'),
+    ),
+    h('label', { class: 'field' },
+      h('span', {}, 'Код доступа'),
+      h('input', {
+        ...plainText, type: 'text', class: 'input', value: config.accessCode,
+        onchange: (e) => { setAiConfig({ accessCode: e.target.value.trim() }); refresh(); },
+      }),
+      h('small', { class: 'field__hint' }, 'Хранится только на этом устройстве и не попадает в бэкап.'),
+    ),
+    h('p', { class: 'muted hint' },
+      config.endpoint && config.accessCode ? 'Готово: кнопка на экране «Неделя» активна.' : 'Заполни оба поля — и кнопка на экране «Неделя» заработает.'),
   );
 }
 

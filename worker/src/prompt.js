@@ -34,7 +34,7 @@ Each proposal changes exactly one thing, named by "target":
 - "wakeTarget", "bedTarget", "lateBedThreshold", "shutdownFrom": put the new time in "value" as "HH:MM".
 - "weeklyApplicationsGoal": put the new whole number (0 to 50) in "value" as a string.
 - "workoutsPerWeek": only when plan.workoutMode is "weekly"; a whole number from 1 to 7 in "value" as a string.
-- "block": change when one routine block starts and ends. Put its id in "blockId" and the new times in "start" and "end". The block must not overlap any other block afterwards, so in practice you can shorten a block or move it into free time. You cannot add, remove or rename blocks.
+- "block": change when one routine block starts and ends. Put its id in "blockId" and the new times in "start" and "end". The block must not overlap any other block afterwards, so in practice you can shorten a block or move it into free time. A block marked "fixed": true cannot be changed. You cannot add, remove or rename blocks.
 
 Fields that do not apply to a proposal are null.
 

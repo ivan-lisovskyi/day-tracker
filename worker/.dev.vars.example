@@ -1,0 +1,6 @@
+# Local development only: copy to .dev.vars (which is not committed) and run `npm run dev`.
+# These are test values for the local server, not secrets.
+ACCESS_CODE=local-test-code-not-a-secret
+ALLOWED_ORIGINS=http://localhost:8000
+# Answer with a canned plan instead of calling Claude, so no API key is needed locally.
+MOCK_CLAUDE=1
