@@ -104,6 +104,7 @@ test('malformed and oversized bodies are rejected', async () => {
   assert.equal((await handle(post({ stats: [], plan: {} }), env)).status, 400);
   assert.equal((await handle(post({ stats: { note: 'я'.repeat(40_000) }, plan: {} }), env)).status, 413);
   assert.equal(calls.length, 0);
+  assert.equal(env.LIMITS.map.size, 0);
 });
 
 test('preflight, health check and unknown paths', async () => {

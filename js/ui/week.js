@@ -40,10 +40,10 @@ export function render(root) {
         redraw();
       }),
       summaryCard(stats),
-      exportCard(stats, exportState, async () => { exportState = await copyWeek(stats); redraw(); }),
-      aiCard(stats, data.settings, redraw),
       daysCard(stats),
       habitsCard(stats),
+      exportCard(stats, exportState, async () => { exportState = await copyWeek(stats); redraw(); }),
+      aiCard(stats, data.settings, redraw),
     );
   };
 
@@ -211,7 +211,8 @@ function aiCard(stats, settings, redraw) {
   const configured = isAiConfigured();
   const empty = stats.days.every((day) => !day.hasRecord || day.isFuture);
   const hint = !configured
-    ? ['Сначала укажи адрес сервера и код доступа в ', h('a', { href: '#settings', class: 'link' }, 'настройках'), '.']
+    ? ['Трекер и сводка работают без настройки сервера. Для разбора с ИИ можно ',
+      h('a', { href: '#settings', class: 'link' }, 'подключить помощника'), '.']
     : empty
       ? 'В этой неделе пока нет данных для разбора.'
       : 'Отправит итоги этой недели, заметки и чек-ины на твой сервер и в Claude. План изменится, только если ты нажмёшь «Принять».';

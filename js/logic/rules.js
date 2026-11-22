@@ -96,6 +96,10 @@ export function isDayCounted(day, dayKey, settings) {
  */
 export function isWorkoutPlanned(dayKey, days, settings, depth = 0) {
   if (isWeeklyWorkoutGoal(settings)) return weeklyWorkoutPlanned(dayKey, days, settings);
+  // The weekday template can change after an activity was recorded.
+  const day = days[dayKey];
+  if (workoutDone(day)) return true;
+  if (day?.done?.stretch === true) return false;
   return isWorkoutDay(dayKey, settings) || hasPendingWorkout(dayKey, days, settings, depth);
 }
 

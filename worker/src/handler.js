@@ -37,8 +37,8 @@ export function createHandler({ askClaude, now = () => new Date() }) {
 
       if (!cors) throw new PlanError(403, 'origin', 'Этот сайт не может обращаться к серверу.');
       await checkAccessCode(request, env);
-      await checkDailyLimit(env, now());
       const input = await readInput(request);
+      await checkDailyLimit(env, now());
 
       return json(200, await askClaude(input, env), cors);
     } catch (error) {

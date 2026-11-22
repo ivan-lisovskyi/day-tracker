@@ -10,7 +10,7 @@ Built for one real user (me) on iPhone. The UI is in Russian. All data stays on 
 
 ## Install on iPhone
 
-1. Open the live app link in **Safari** (not Chrome — only Safari can add web apps to the Home Screen).
+1. Open the live app link in **Safari**. You can start tracking without configuring a server or an API key.
 2. **Share → Add to Home Screen → Add**.
 3. Open it from the new icon. It runs full-screen and works offline; updates arrive as "Доступно обновление" → "Перезапустить".
 

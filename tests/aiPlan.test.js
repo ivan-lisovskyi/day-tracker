@@ -60,6 +60,13 @@ test('time goals: described as "from → to", rejected when unchanged, malformed
   assert.equal(describeProposal(proposal({ target: 'lateBedThreshold', value: '00:30' }), settings), null); // before bedtime
 });
 
+test('AI cannot put the evening review after bedtime, even across midnight', () => {
+  const settings = createDefaultSettings();
+  assert.equal(describeProposal(proposal({ target: 'shutdownFrom', value: '01:30' }), settings), null);
+  assert.equal(describeProposal(proposal({ target: 'bedTarget', value: '20:00' }), settings), null);
+  assert.equal(describeProposal(proposal({ target: 'shutdownFrom', value: '00:30' }), settings).to, '00:30');
+});
+
 test('counts: whole numbers in range; workouts per week only with the weekly goal on', () => {
   const settings = createDefaultSettings();
   assert.deepEqual(describeProposal(proposal({ target: 'weeklyApplicationsGoal', value: '3' }), settings), {

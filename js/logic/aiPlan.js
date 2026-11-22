@@ -191,9 +191,10 @@ function isDayOrderValid(settings, changed) {
   const at = (key) => toDayMinutes(settings[key], settings.dayBoundary);
   const checks = {
     wakeTarget: () => at('wakeTarget') < at('bedTarget') && at('wakeTarget') < at('shutdownFrom'),
-    bedTarget: () => at('wakeTarget') < at('bedTarget') && at('bedTarget') <= at('lateBedThreshold'),
+    bedTarget: () => at('wakeTarget') < at('bedTarget') && at('shutdownFrom') <= at('bedTarget')
+      && at('bedTarget') <= at('lateBedThreshold'),
     lateBedThreshold: () => at('bedTarget') <= at('lateBedThreshold'),
-    shutdownFrom: () => at('wakeTarget') < at('shutdownFrom'),
+    shutdownFrom: () => at('wakeTarget') < at('shutdownFrom') && at('shutdownFrom') <= at('bedTarget'),
   };
   return checks[changed]();
 }

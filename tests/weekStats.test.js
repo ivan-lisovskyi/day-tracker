@@ -30,6 +30,18 @@ function sampleData() {
   };
 }
 
+test('changing fixed workout weekdays keeps completed workouts and stretches in the weekly report', () => {
+  const data = sampleData();
+  data.days['2026-11-17'].done.stretch = true;
+  data.settings.workoutDays = [2, 4];
+  const stats = buildWeekStats(data, MONDAY, TODAY);
+  assert.equal(stats.totals.workoutsDone, 1);
+  assert.equal(stats.days[0].workout, 'workout');
+  assert.equal(stats.days[0].habits.workout, true);
+  assert.equal(stats.days[1].workout, 'stretch');
+  assert.equal(stats.days[1].habits.stretch, true);
+});
+
 test('weekly totals', () => {
   const stats = buildWeekStats(sampleData(), MONDAY, TODAY);
 
