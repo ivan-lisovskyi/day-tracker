@@ -73,6 +73,7 @@ On the Week screen the app sends the week's statistics and the current plan to a
 - [x] "Today" screen
 - [x] "Week" screen + text export
 - [x] Open an earlier day from "Week" to see and fix its marks
+- [x] One-handed "Today": "Сейчас" bar above the tabs with "✓ Готово", finished blocks fold away, "Отменить" after a mark, week strip; one-row habits table
 - [x] Settings + JSON backup
 - [x] Offline support (service worker, update banner, persistent storage)
 - [x] "Сейчас" card: the current block with time left, its checkboxes and what comes next

@@ -363,8 +363,9 @@ function habitsCard(stats) {
     habits.length === 0
       ? h('p', { class: 'muted' }, 'За эту неделю пока нет отметок.')
       : [
-        h('div', { class: 'habit__cells habit__cells--header', 'aria-hidden': 'true' },
-          WEEKDAY_LETTERS.map((letter) => h('span', {}, letter))),
+        // One row per habit: name, a cell per day, the count — the same grid for the header.
+        h('div', { class: 'habit habit--header', 'aria-hidden': 'true' },
+          h('span'), WEEKDAY_LETTERS.map((letter) => h('span', { class: 'habit__letter' }, letter)), h('span')),
         h('ul', { class: 'habits' }, habits.map((habit) => habitRow(habit, stats))),
         h('p', { class: 'muted hint' }, '✓ сделано · ✗ не сделано · – пропущено осознанно · пунктир — сегодня, ещё не отмечено'),
       ],
@@ -374,23 +375,21 @@ function habitsCard(stats) {
 function habitRow(habit, stats) {
   const streak = stats.streaks?.habits[habit.id];
   return h('li', { class: 'habit' },
-    h('div', { class: 'habit__head' },
-      h('span', { class: 'habit__title' }, habit.title),
-      h('span', { class: 'habit__count' },
-        `${habit.done}/${habit.applicable}`,
-        streak ? h('small', {}, ` · серия ${streak}${forgivenNote(stats.streaks.forgiven.habits[habit.id], ' (', ')')}`) : null),
-    ),
-    h('div', { class: 'habit__cells' },
-      stats.days.map((day) => {
-        const value = day.habits[habit.id];
-        const [symbol, modifier, text] = day.skipped.includes(habit.id)
-          ? ['–', 'skipped', 'пропущено осознанно']
-          : cellLook(value, day.isToday);
-        return h('span', {
-          class: `cell cell--${modifier}`,
-          title: `${formatDayShort(day.date, day.weekday)}: ${text}`,
-        }, symbol);
-      })),
+    h('span', { class: 'habit__title' }, habit.title,
+      streak ? h('small', { class: 'habit__streak' },
+        `серия ${streak}${forgivenNote(stats.streaks.forgiven.habits[habit.id], ' (', ')')}`) : null),
+    stats.days.map((day) => {
+      const value = day.habits[habit.id];
+      const [symbol, modifier, text] = day.skipped.includes(habit.id)
+        ? ['–', 'skipped', 'пропущено осознанно']
+        : cellLook(value, day.isToday);
+      return h('span', {
+        class: `cell cell--${modifier}`,
+        title: `${formatDayShort(day.date, day.weekday)}: ${text}`,
+        'aria-label': `${formatDayShort(day.date, day.weekday)}: ${text}`,
+      }, symbol);
+    }),
+    h('span', { class: 'habit__count' }, `${habit.done}/${habit.applicable}`),
   );
 }
 

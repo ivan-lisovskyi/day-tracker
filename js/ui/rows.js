@@ -2,6 +2,21 @@
 import { h } from './dom.js';
 import { addDays, weekStart } from '../logic/time.js';
 import { isSkipped, isWeeklyWorkoutGoal, isWorkoutPlanned, weeklyWorkoutProgress } from '../logic/rules.js';
+import { showToast } from './toast.js';
+
+/** Marks a task done, with "Отменить" in a short note instead of a question before. */
+export function tickTask(task, edit) {
+  edit((d) => {
+    d.done[task.id] = true;
+    if (d.skipped) delete d.skipped[task.id];
+  });
+  showToast(`Отмечено: ${task.title}`, () => edit((d) => { delete d.done[task.id]; }));
+}
+
+function skipTask(task, edit) {
+  edit((d) => { (d.skipped ??= {})[task.id] = true; });
+  showToast(`Пропущено: ${task.title}`, () => edit((d) => { if (d.skipped) delete d.skipped[task.id]; }));
+}
 
 export function checkRow({ checked, label, hint = null, disabled = false, nested = false, onChange }) {
   return h('label', { class: `check${checked ? ' is-done' : ''}${nested ? ' check--nested' : ''}` },
@@ -55,18 +70,14 @@ export function taskRow(task, day, edit) {
     checkRow({
       checked,
       label: task.title,
-      onChange: (value) => edit((d) => {
-        if (value) {
-          d.done[task.id] = true;
-          if (d.skipped) delete d.skipped[task.id];
-        } else {
-          delete d.done[task.id];
-        }
-      }),
+      onChange: (value) => {
+        if (value) tickTask(task, edit);
+        else edit((d) => { delete d.done[task.id]; });
+      },
     }),
     !checked && h('button', {
       class: 'link-btn link-btn--quiet', 'aria-label': `Пропустить сегодня: ${task.title}`,
-      onclick: () => edit((d) => { (d.skipped ??= {})[task.id] = true; }),
+      onclick: () => skipTask(task, edit),
     }, 'пропустить'),
   );
 }

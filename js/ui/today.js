@@ -12,7 +12,10 @@ import { createRenderer, h } from './dom.js';
 import { formatDayLabel, formatDuration, formatRange, plural } from './format.js';
 import { checkRow, statusRow, taskRow, workoutGoalLine } from './rows.js';
 import { forgivenNote } from '../logic/exportText.js';
-import { nowCard } from './nowCard.js';
+import { nowBar } from './nowCard.js';
+import { weekStrip } from './weekStrip.js';
+import { showToast } from './toast.js';
+import { finishedBlockIds } from '../logic/dayView.js';
 import { checkinCard, checkinSummary, isCheckinEditing } from './checkin.js';
 import { shutdownCard, shutdownPrompt } from './shutdown.js';
 import * as store from '../state/store.js';
@@ -41,6 +44,9 @@ const REFRESH_MS = 30_000;
 
 /** Days whose "close the day" form is expanded (tapped open), kept across re-renders. */
 const shutdownExpanded = new Set();
+/** Days whose folded parts were opened by a tap: finished blocks, a met minimum. */
+const finishedShown = new Set();
+const minimumShown = new Set();
 
 export function render(root) {
   return renderDay(root, null);
@@ -114,6 +120,7 @@ function buildPastScreen(data, dayKey, now, redraw) {
       h('a', { class: 'link-btn back-link', href: '#week' }, '‹ Неделя'),
       h('p', { class: 'muted hint' }, 'Можно исправить отметки: серии и сводка недели пересчитаются.'),
     ),
+    weekStrip(data, dayKey, dayKeyFor(now, data.settings.dayBoundary)),
     modeCard(ctx), // the date comes first: which day is this
     (isCheckinEditing(dayKey) || !day.checkin) && checkinCard(ctx),
     mode !== 'sick' && minimumCard(ctx),
@@ -144,9 +151,9 @@ function buildScreen(data, dayKey, now, redraw) {
     saveErrorBanner(),
     backupBanner(data, dayKey),
     !evening && !closed && minimumSuggestionBanner(ctx), // pointless once the day is over
+    weekStrip(data, dayKey, dayKey),
     showCheckin && checkinCard(ctx),
     evening && shutdown(),
-    nowCard(ctx),
     modeCard(ctx),
     mode !== 'sick' && minimumCard(ctx),
     sleepCard(ctx),
@@ -157,6 +164,7 @@ function buildScreen(data, dayKey, now, redraw) {
     !evening && !closed && !expanded && h('button', {
       class: 'btn btn--block btn--ghost', onclick: ctx.expandShutdown,
     }, 'Закрыть день'),
+    nowBar(ctx), // last: it sticks to the bottom of the screen above the tabs
   ].filter(Boolean);
 
   return nodes;
@@ -203,6 +211,7 @@ function modeCard(ctx) {
   const { dayKey, mode, edit } = ctx;
   return h('section', { class: 'card' },
     h('p', { class: 'day-label' }, formatDayLabel(dayKey)),
+    ctx.day.focus && h('p', { class: 'day-focus' }, h('span', { class: 'muted' }, 'Главное: '), ctx.day.focus),
     checkinSummary(ctx),
     h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Режим дня' },
       MODES.map(([value, label]) => h('button', {
@@ -221,12 +230,31 @@ function modeCard(ctx) {
 
 // ---------- minimum ----------
 
-function minimumCard({ settings, days, dayKey, day, mode, edit, past }) {
+function minimumCard({ settings, days, dayKey, day, mode, edit, past, redraw }) {
   const status = minimumStatus(day, dayKey, settings);
   const doneCount = [status.wake, status.cbr, status.work].filter(Boolean).length;
   const streak = minimumStreak(dayKey, days, settings);
   const deadline = addMinutes(settings.wakeTarget, settings.wakeToleranceMin);
   const applications = day.applications ?? 0;
+
+  const streakLine = h('p', { class: 'streak' }, `Серия: ${streak.count} ${plural(streak.count, 'день', 'дня', 'дней')}`,
+    streak.forgiven > 0 && h('small', { class: 'streak__note' }, forgivenNote(streak.forgiven, ' · ')));
+  const toggle = (open) => () => {
+    if (open) minimumShown.add(dayKey);
+    else minimumShown.delete(dayKey);
+    redraw();
+  };
+
+  if (status.met && !minimumShown.has(dayKey)) {
+    return h('section', { class: 'card card--folded' },
+      h('div', { class: 'card__head' },
+        h('h2', { class: 'card__title' }, 'Минимум дня'),
+        h('span', { class: 'badge badge--success' }, 'Засчитан'),
+      ),
+      h('div', { class: 'folded-line' }, streakLine,
+        h('button', { class: 'link-btn', onclick: toggle(true) }, 'показать')),
+    );
+  }
 
   return h('section', { class: `card${mode === 'minimum' ? ' card--accent' : ''}` },
     h('div', { class: 'card__head' },
@@ -252,8 +280,8 @@ function minimumCard({ settings, days, dayKey, day, mode, edit, past }) {
       nested: true,
       onChange: (checked) => edit((d) => { d.minimum.code15 = checked; }),
     }),
-    h('p', { class: 'streak' }, `Серия: ${streak.count} ${plural(streak.count, 'день', 'дня', 'дней')}`,
-      streak.forgiven > 0 && h('small', { class: 'streak__note' }, forgivenNote(streak.forgiven, ' · '))),
+    status.met ? h('div', { class: 'folded-line' }, streakLine,
+      h('button', { class: 'link-btn', onclick: toggle(false) }, 'свернуть')) : streakLine,
   );
 }
 
@@ -331,7 +359,10 @@ function applicationsCard({ settings, days, dayKey, day, edit, past }) {
       h('div', { class: 'stepper__value' }, h('strong', {}, String(today)), h('span', { class: 'muted' }, past ? 'в этот день' : 'сегодня')),
       h('button', {
         class: 'btn btn--primary stepper__btn', 'aria-label': 'Добавить отклик',
-        onclick: () => edit((d) => { d.applications = (d.applications ?? 0) + 1; }),
+        onclick: () => {
+          edit((d) => { d.applications = (d.applications ?? 0) + 1; });
+          showToast('Отклик добавлен', () => edit((d) => { d.applications = Math.max(0, (d.applications ?? 0) - 1); }));
+        },
       }, '+'),
     ),
     h('div', {
@@ -399,25 +430,45 @@ function defaultLesson(now) {
 // ---------- timeline ----------
 
 function timelineCard(ctx) {
-  const { day, mode, schedule, nowMinutes, edit } = ctx;
+  const { dayKey, day, mode, schedule, nowMinutes, past, edit, redraw } = ctx;
   const current = findCurrentBlock(schedule.blocks, nowMinutes);
   const renderedTasks = new Set(); // a block split by a lesson shows its checkbox only once
+  const items = schedule.blocks.map((block) => {
+    const tasks = block.tasks.filter((t) => !renderedTasks.has(t.id));
+    tasks.forEach((t) => renderedTasks.add(t.id));
+    return { block, tasks };
+  });
+
+  // Blocks that are over and need nothing more fold into one line, so what is left is on top.
+  const finished = finishedBlockIds(items, day, nowMinutes, past);
+  const open = finishedShown.has(dayKey);
+  const toggle = () => {
+    if (open) finishedShown.delete(dayKey);
+    else finishedShown.add(dayKey);
+    redraw();
+  };
+  const visible = open ? items : items.filter(({ block }) => !finished.has(block.id));
 
   return h('section', { class: 'card' },
     h('h2', { class: 'card__title' }, mode === 'sick' ? 'Режим сна' : 'Распорядок'),
-    h('ol', { class: 'timeline' },
-      schedule.blocks.map((block) => {
-        const tasks = block.tasks.filter((t) => !renderedTasks.has(t.id));
-        tasks.forEach((t) => renderedTasks.add(t.id));
-        return blockItem(block, tasks, block === current, day, edit, block.kind === 'workout' && workoutGoalLine(ctx));
-      }),
+    finished.size > 0 && h('button', { class: 'folded-blocks', 'aria-expanded': String(open), onclick: toggle },
+      h('span', { class: 'folded-blocks__icon', 'aria-hidden': 'true' }, '✓'),
+      h('span', {}, `Сделано: ${finished.size} ${plural(finished.size, 'блок', 'блока', 'блоков')}`),
+      h('span', { class: 'folded-blocks__action' }, open ? 'скрыть' : 'показать'),
+    ),
+    visible.length > 0 && h('ol', { class: 'timeline' },
+      visible.map(({ block, tasks }) => blockItem(
+        block, tasks, block === current, day, edit, block.kind === 'workout' && workoutGoalLine(ctx),
+        finished.has(block.id),
+      )),
     ),
   );
 }
 
-function blockItem(block, tasks, isCurrent, day, edit, footer) {
+function blockItem(block, tasks, isCurrent, day, edit, footer, finished) {
   const classes = ['block', `block--${block.kind}`];
   if (isCurrent) classes.push('is-current');
+  if (finished) classes.push('is-finished');
   if (block.start === block.end) classes.push('block--marker');
 
   const chips = [
