@@ -228,3 +228,18 @@ test('weekly workout goal: the goal is the denominator, in the stats and in the 
   assert.equal(stats.totals.workoutsDone, 1); // Monday
   assert.ok(weekToText(stats).includes('- Тренировки с гирей: 1 из 4 (цель: 4 раза в неделю)'));
 });
+
+test('filling in a day from before tracking started does not turn the days around it into misses', () => {
+  const data = sampleData();
+  delete data.days['2026-11-16'];
+  delete data.days['2026-11-17'];
+  delete data.days['2026-11-18'];
+  data.settings.trackingSince = '2026-11-19';
+  const before = buildWeekStats(data, MONDAY, TODAY);
+
+  data.days['2026-11-16'] = { checkin: { sleep: 3, energy: 3 }, done: {}, minimum: {} }; // added later
+  const after = buildWeekStats(data, MONDAY, TODAY);
+
+  assert.deepEqual(after.days.map((d) => d.isBeforeStart), [true, true, true, false, false, false, false]);
+  assert.deepEqual(after.totals, before.totals);
+});

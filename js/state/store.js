@@ -4,7 +4,8 @@
  *
  * Storage access is isolated here, so switching to IndexedDB later touches only this file.
  */
-import { createDay, createInitialData, migrate } from './schema.js';
+import { clone, createDay, createInitialData, migrate } from './schema.js';
+import { dayKeyFor } from '../logic/time.js';
 
 const STORAGE_KEY = 'day-tracker';
 
@@ -25,6 +26,7 @@ function readStorage() {
   try {
     return migrate(JSON.parse(raw));
   } catch (err) {
+    if (err instanceof ReferenceError) throw err; // a missing browser feature, not bad data: keep it where it is
     // Never silently lose data: keep the unreadable copy aside, then start fresh.
     console.error('Stored data could not be read; a copy was kept aside.', err);
     try {
@@ -66,7 +68,7 @@ export function subscribe(listener) {
  * Pass { notify: false } for changes that must not re-render (typing in a note).
  */
 export function update(mutator, { notify = true } = {}) {
-  const draft = structuredClone(getData());
+  const draft = clone(getData());
   mutator(draft);
   data = draft;
   writeStorage();
@@ -76,6 +78,8 @@ export function update(mutator, { notify = true } = {}) {
 /** Like update(), but for one day; creates the day record if it does not exist yet. */
 export function updateDay(dayKey, mutator, options) {
   update((draft) => {
+    // The first mark ever starts tracking today (not on an edited earlier day): days before it are not misses.
+    draft.settings.trackingSince ??= dayKeyFor(new Date(), draft.settings.dayBoundary);
     const day = (draft.days[dayKey] ??= createDay());
     day.done ??= {}; // a day from an old or hand-edited backup may lack these
     day.minimum ??= {};
@@ -85,7 +89,7 @@ export function updateDay(dayKey, mutator, options) {
 
 /** Replaces everything (used when restoring a backup). `next` must already be migrated. */
 export function replaceAll(next) {
-  data = structuredClone(next);
+  data = clone(next);
   writeStorage();
   for (const listener of listeners) listener(data);
 }

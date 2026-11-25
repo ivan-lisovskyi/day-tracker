@@ -31,6 +31,11 @@ const WORKOUT_CHOICES = ['workout', 'stretch'];
 
 export const SCHEMA_VERSION = 1;
 
+/** Deep copy of plain JSON data. structuredClone is missing before iOS 15.4. */
+export const clone = (value) => (typeof structuredClone === 'function'
+  ? structuredClone(value)
+  : JSON.parse(JSON.stringify(value)));
+
 /** MIGRATIONS[n] turns version n data into version n + 1. */
 const MIGRATIONS = {
   // 1: (data) => ({ ...data, newField: ... }),
@@ -66,7 +71,7 @@ export function migrate(input) {
   if (!Number.isInteger(version) || version < 1) throw new Error('В данных нет корректной версии схемы.');
   if (version > SCHEMA_VERSION) throw new Error('Данные из более новой версии приложения — обнови приложение.');
 
-  let data = structuredClone(input);
+  let data = clone(input);
   while (version < SCHEMA_VERSION) {
     data = MIGRATIONS[version](data);
     version += 1;
@@ -89,6 +94,14 @@ const STAMP_SETTINGS = ['lastBackupAt', 'backupReminderDismissedAt'];
 const isString = (value) => typeof value === 'string';
 const isCount = (value) => Number.isInteger(value) && value >= 0;
 const isDateKey = (value) => isString(value) && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+/** "2026-02-30" has the right shape but is not a day. */
+function isRealDateKey(value) {
+  if (!isDateKey(value)) return false;
+  const [y, m, d] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
 
 function isTime(value) {
   if (!isString(value)) return false;
@@ -145,6 +158,8 @@ function normalizeSettings(input) {
   }
   result.workout = workout;
 
+  if (result.trackingSince !== null && !isRealDateKey(result.trackingSince)) result.trackingSince = null;
+
   result.blocks = Array.isArray(settings.blocks)
     ? settings.blocks.filter(isBlock).map((block) => (block.tasks ? block : { ...block, tasks: [] }))
     : defaults.blocks;
@@ -179,9 +194,9 @@ function normalizeDays(input) {
 }
 
 function normalize(data) {
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    settings: normalizeSettings(data.settings),
-    days: normalizeDays(data.days),
-  };
+  const settings = normalizeSettings(data.settings);
+  const days = normalizeDays(data.days);
+  // Data from before this setting existed: tracking started on the earliest recorded day.
+  settings.trackingSince ??= Object.keys(days).sort()[0] ?? null;
+  return { schemaVersion: SCHEMA_VERSION, settings, days };
 }

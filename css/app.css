@@ -807,7 +807,10 @@ label.card__title {
 }
 
 .day-row__link {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 44px; /* a full-size tap target even for a row without details */
   color: inherit;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;

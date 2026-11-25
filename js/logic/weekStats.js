@@ -18,14 +18,15 @@ export const WEEK_STATS_VERSION = 4; // v4: workout goal per week (goals.workout
  * @param {object} data      { settings, days }
  * @param {string} mondayKey first day of the week
  * @param {string} todayKey  days after it are "future" and not evaluated;
- *                           neither are days before the first record in `days`
+ *                           neither are days before settings.trackingSince
  */
 export function buildWeekStats(data, mondayKey, todayKey) {
   const { settings, days } = data;
   const habits = listHabits(settings);
   const keys = weekKeys(mondayKey);
-  // Days before the first record ever made (before the app was installed) are not misses.
-  const firstKey = Object.keys(days).concat(todayKey).sort()[0];
+  // Days before tracking started (before the app was installed) are not misses, even if
+  // something was filled in for them later.
+  const firstKey = settings.trackingSince ?? Object.keys(days).concat(todayKey).sort()[0];
   const dayStats = keys.map((key) => buildDay(key, days, settings, habits, todayKey, firstKey));
   const past = dayStats.filter((d) => !d.isFuture && !d.isBeforeStart);
 

@@ -235,3 +235,12 @@ test('weekly goal: progress of the week up to a day', () => {
   assert.deepEqual(weeklyWorkoutProgress(W[2], days, weekly), { done: 2, goal: 3 });
   assert.deepEqual(weeklyWorkoutProgress(W[1], days, weekly), { done: 1, goal: 3 });
 });
+
+test('weekly goal: a stretch that was done stays a stretch day when earlier days or the goal change', () => {
+  const days = { [W[0]]: { done: { workout: true } }, [W[1]]: { done: { stretch: true } } };
+  assert.equal(isWorkoutPlanned(W[1], days, weekly), false);
+  days[W[0]].done.workout = false; // Monday unticked later from the past-day screen
+  assert.equal(isWorkoutPlanned(W[1], days, weekly), false);
+  // A higher goal makes every remaining day a must-do, but not a day already spent stretching.
+  assert.equal(isWorkoutPlanned(W[1], days, { ...weekly, workoutsPerWeek: 7 }), false);
+});

@@ -8,6 +8,7 @@ import { createInitialData } from '../js/state/schema.js';
 function dataWithDays(...keys) {
   const data = createInitialData();
   for (const key of keys) data.days[key] = { mode: 'normal', done: {} };
+  data.settings.trackingSince = [...keys].sort()[0] ?? null;
   return data;
 }
 

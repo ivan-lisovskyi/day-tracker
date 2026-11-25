@@ -1,5 +1,6 @@
 /** Shared rows: a big tappable checkbox row, a read-only status row and a schedule task row. */
 import { h } from './dom.js';
+import { addDays, weekStart } from '../logic/time.js';
 import { isSkipped, isWeeklyWorkoutGoal, isWorkoutPlanned, weeklyWorkoutProgress } from '../logic/rules.js';
 
 export function checkRow({ checked, label, hint = null, disabled = false, nested = false, onChange }) {
@@ -76,7 +77,9 @@ export function taskRow(task, day, edit) {
  */
 export function workoutGoalLine({ settings, days, dayKey, day, edit, past }) {
   if (!isWeeklyWorkoutGoal(settings)) return null;
-  const { done, goal } = weeklyWorkoutProgress(dayKey, days, settings);
+  // On an earlier day the whole week is over (or still going): count all of it, not up to that day.
+  const progressKey = past ? addDays(weekStart(dayKey), 6) : dayKey;
+  const { done, goal } = weeklyWorkoutProgress(progressKey, days, settings);
   const planned = isWorkoutPlanned(dayKey, days, settings);
   // Short link text: the first word of the other activity's title ("гиря", "растяжка").
   const other = (planned ? settings.workout.restTitle : settings.workout.title).trim().split(/\s+/)[0].toLowerCase();

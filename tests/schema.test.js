@@ -12,6 +12,7 @@ test('initial data has the current schema version and no days', () => {
 test('migrate keeps valid data as is', () => {
   const data = createInitialData();
   data.days['2026-11-23'] = { mode: 'normal', applications: 2 };
+  data.settings.trackingSince = '2026-11-23';
   assert.deepEqual(migrate(data), data);
 });
 
@@ -122,4 +123,18 @@ test('workout goal settings and the choice for a day are validated', () => {
   assert.equal(result.settings.workoutsPerWeek, 3);
   assert.equal('workoutChoice' in result.days['2026-11-20'], false);
   assert.equal(result.days['2026-11-21'].workoutChoice, 'stretch');
+});
+
+test('tracking start: taken from the earliest day for older data, broken values dropped', () => {
+  const data = createInitialData();
+  data.days['2026-11-20'] = { done: {} };
+  data.days['2026-11-18'] = { done: {} };
+  assert.equal(migrate(data).settings.trackingSince, '2026-11-18');
+
+  data.settings.trackingSince = '2026-11-19';
+  assert.equal(migrate(data).settings.trackingSince, '2026-11-19'); // kept once set
+
+  data.settings.trackingSince = '2026-02-30';
+  assert.equal(migrate(data).settings.trackingSince, '2026-11-18');
+  assert.equal(migrate(createInitialData()).settings.trackingSince, null); // nothing tracked yet
 });

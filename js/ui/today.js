@@ -377,9 +377,17 @@ function drivingCard({ settings, day, schedule, edit, past }) {
     schedule.unplaced.length > 0 && h('div', { class: 'unplaced' },
       h('p', { class: 'hint hint--warning' }, past ? 'Не поместилось:' : 'Не помещается сегодня:'),
       h('ul', {}, schedule.unplaced.map((u) => h('li', {}, `${u.title} — ${formatDuration(u.minutes)}`))),
+      // Their tasks are still the day's tasks: they can be done at another time or skipped.
+      // A block that only partly fits already shows its checkbox in the timeline.
+      unplacedTasks(schedule).map((task) => taskRow(task, day, edit)),
     ),
     h('button', { class: 'btn btn--block btn--ghost', onclick: () => edit((d) => { d.drivingLesson = null; }) }, 'Убрать урок'),
   );
+}
+
+function unplacedTasks(schedule) {
+  const placed = new Set(schedule.blocks.flatMap((b) => b.tasks.map((t) => t.id)));
+  return schedule.unplaced.flatMap((u) => u.tasks ?? []).filter((t) => !placed.has(t.id));
 }
 
 function defaultLesson(now) {

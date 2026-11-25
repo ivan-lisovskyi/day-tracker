@@ -28,6 +28,7 @@ function render() {
   const { name, dayKey } = currentRoute();
   const screen = routes[name];
   const tab = screen.tab ?? name;
+  if (name !== 'day' && name !== 'week') week.forgetReturnWeek();
 
   titleEl.textContent = screen.title;
   document.title = `${screen.title} · Мой день`;

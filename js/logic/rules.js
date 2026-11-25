@@ -132,6 +132,7 @@ function isWorkoutMustDo(dayKey, days, settings) {
 function weeklyWorkoutPlanned(dayKey, days, settings) {
   const day = days[dayKey];
   if (workoutDone(day)) return true;
+  if (day?.done?.stretch === true) return false; // a stretch that was done stays a stretch day
   if (day?.workoutChoice) return day.workoutChoice === 'workout';
 
   const { need, daysLeft } = weeklyWorkoutNeed(dayKey, days, settings);

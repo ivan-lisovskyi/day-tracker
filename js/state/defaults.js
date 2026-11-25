@@ -78,6 +78,7 @@ export function createDefaultSettings() {
 
     shutdownFrom: '21:00', // the "close the day" card moves to the top of "Сегодня" from this time
 
+    trackingSince: null, // first day the app was used: earlier days are not misses
     lastBackupAt: null,
     backupReminderDismissedAt: null,
   };

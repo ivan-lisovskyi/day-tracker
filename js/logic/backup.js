@@ -37,7 +37,7 @@ export function parseBackup(text) {
 /** Short description of a backup for the confirmation dialog. */
 export function describeBackup(data) {
   const keys = Object.keys(data.days).sort();
-  return { dayCount: keys.length, firstDay: keys[0] ?? null, lastDay: keys.at(-1) ?? null };
+  return { dayCount: keys.length, firstDay: keys[0] ?? null, lastDay: keys[keys.length - 1] ?? null };
 }
 
 /**
@@ -46,14 +46,14 @@ export function describeBackup(data) {
  * No data yet → nothing to back up, no reminder.
  */
 export function shouldRemindBackup(data, todayKey) {
-  const firstDay = Object.keys(data.days).sort()[0];
-  if (!firstDay) return false;
+  if (Object.keys(data.days).length === 0) return false; // nothing to back up yet
+  const firstDay = data.settings.trackingSince ?? Object.keys(data.days).sort()[0];
 
   const { lastBackupAt, backupReminderDismissedAt } = data.settings;
   const references = [firstDay, lastBackupAt, backupReminderDismissedAt]
     .filter(Boolean)
     .map((value) => (value.includes('T') ? parseStamp(value).key : value));
-  const latest = references.sort().at(-1);
+  const latest = references.sort()[references.length - 1];
 
   return daysBetween(latest, todayKey) >= BACKUP_REMINDER_DAYS;
 }

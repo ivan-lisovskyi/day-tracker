@@ -21,6 +21,11 @@ const WEEKDAY_LETTERS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 // The week that was on screen when a day was opened from it: "‹ Неделя" comes back to it.
 let returnOffset = 0;
 
+/** Leaving the day for another tab: the "Неделя" tab opens on this week again. */
+export function forgetReturnWeek() {
+  returnOffset = 0;
+}
+
 // "Подстроить план с ИИ": the request state outlives a tab switch (the answer takes a few seconds).
 let aiState = { status: 'idle' }; // { status: 'idle' | 'loading' } | { status: 'error', message }
 let redrawWeek = null; // redraw of the Week screen that is on screen now, if any
@@ -307,7 +312,7 @@ function daysCard(stats, onOpen) {
   );
 }
 
-/** A past day opens on its own screen, today opens "Сегодня"; future days are not links. */
+/** A past day opens on its own screen, today opens "Сегодня"; future and pre-tracking days are not links. */
 function dayRow(day, onOpen) {
   const [label, modifier] = dayStatus(day);
   const facts = day.hasRecord && !day.isFuture
@@ -321,18 +326,19 @@ function dayRow(day, onOpen) {
     ].filter(Boolean)
     : [];
 
+  const opens = !day.isFuture && !day.isBeforeStart;
   const content = [
     h('div', { class: 'day-row__head' },
       h('span', { class: 'day-row__date' }, formatDayShort(day.date, day.weekday)),
       h('span', { class: `pill pill--${modifier}` }, label),
-      !day.isFuture && h('span', { class: 'day-row__chevron', 'aria-hidden': 'true' }, '›'),
+      opens && h('span', { class: 'day-row__chevron', 'aria-hidden': 'true' }, '›'),
     ),
     facts.length > 0 && h('p', { class: 'day-row__facts' }, facts.join(' · ')),
     day.focus && h('p', { class: 'day-row__facts' }, `Главное: ${day.focus}`),
     day.note && h('p', { class: 'day-row__note' }, day.note),
   ];
   return h('li', { class: `day-row${day.isToday ? ' is-today' : ''}` },
-    day.isFuture
+    !opens
       ? content
       : h('a', { class: 'day-row__link', href: day.isToday ? '#today' : `#day/${day.date}`, onclick: onOpen }, content),
   );
