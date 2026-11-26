@@ -1585,3 +1585,63 @@ a.week-strip__day:active {
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
 }
+
+/* ---------- own tasks ("Свои дела") and the plan of a later day ---------- */
+
+.block--own {
+  border-left-color: var(--accent);
+  background: transparent;
+}
+
+.own-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.own-row,
+.own-add {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+}
+
+.own-row {
+  grid-template-columns: 108px minmax(0, 1fr) 44px;
+}
+
+.own-add {
+  grid-template-columns: minmax(0, 1fr) 108px 44px;
+  margin-top: 10px;
+}
+
+.own-row .input,
+.own-add .input {
+  width: 100%;
+  min-width: 0;
+  color: var(--text);
+}
+
+.own-row__remove,
+.own-add__btn {
+  min-width: 44px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.shutdown__tomorrow,
+.shutdown__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.field + .segmented { /* "План на день": the mode under the main thing */
+  margin-top: 12px;
+}

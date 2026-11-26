@@ -4,6 +4,8 @@
  *
  * The same screen shows an earlier day (opened from "Неделя"), so a forgotten mark can be
  * fixed later: no "now" card, no evening review and no "now" buttons, everything else editable.
+ * A later day opens as "План на день": the main thing, mode, driving lesson, own tasks and the
+ * timeline as it will look, with nothing to tick yet.
  *
  * The whole screen re-renders on every data change (it is small), but never while the user is
  * typing in a field (see createRenderer); the current block highlight is refreshed every 30 s.
@@ -15,6 +17,7 @@ import { forgivenNote } from '../logic/exportText.js';
 import { nowBar } from './nowCard.js';
 import { weekStrip } from './weekStrip.js';
 import { showToast } from './toast.js';
+import { ownTasksCard } from './ownTasks.js';
 import { finishedBlockIds } from '../logic/dayView.js';
 import { checkinCard, checkinSummary, isCheckinEditing } from './checkin.js';
 import { shutdownCard, shutdownPrompt } from './shutdown.js';
@@ -34,6 +37,12 @@ import { saveBackup } from './backup.js';
 
 export const title = 'Сегодня';
 
+/** A later day can be planned as an ordinary or a "minimum" day; "болею" is not planned ahead. */
+const PLAN_MODES = [
+  ['normal', 'Обычный'],
+  ['minimum', 'Минимум'],
+];
+
 const MODES = [
   ['normal', 'Обычный'],
   ['minimum', 'Минимум'],
@@ -49,22 +58,25 @@ const finishedShown = new Set();
 const minimumShown = new Set();
 
 export function render(root) {
-  return renderDay(root, null);
+  return renderDay(root, null, buildScreen);
 }
 
 /** An earlier day, "2026-11-21": the router checks that it is in the past. */
 export function renderPastDay(root, dayKey) {
-  return renderDay(root, dayKey);
+  return renderDay(root, dayKey, buildPastScreen);
 }
 
-function renderDay(root, pastKey) {
+/** A later day, to plan it: the router checks that it is in the future. */
+export function renderPlanDay(root, dayKey) {
+  return renderDay(root, dayKey, buildPlanScreen);
+}
+
+function renderDay(root, shownKey, build) {
   const draw = () => {
     const now = new Date();
     const data = store.getData();
     const redraw = () => renderer.request();
-    root.replaceChildren(...(pastKey
-      ? buildPastScreen(data, pastKey, now, redraw)
-      : buildScreen(data, dayKeyFor(now, data.settings.dayBoundary), now, redraw)));
+    root.replaceChildren(...build(data, shownKey ?? dayKeyFor(now, data.settings.dayBoundary), now, redraw));
   };
 
   const renderer = createRenderer(root, draw);
@@ -88,8 +100,8 @@ function renderDay(root, pastKey) {
   };
 }
 
-/** Everything the cards need about one day. For a past day nothing is "now". */
-function dayContext(data, dayKey, now, redraw, past) {
+/** Everything the cards need about one day. For a past or a planned day nothing is "now". */
+function dayContext(data, dayKey, now, redraw, past, planning = false) {
   const { settings, days } = data;
   const day = days[dayKey] ?? createDay();
   const schedule = buildDaySchedule({
@@ -103,8 +115,8 @@ function dayContext(data, dayKey, now, redraw, past) {
     redraw();
   };
   return {
-    settings, days, dayKey, day, mode: day.mode ?? 'normal', schedule, now, past, redraw,
-    nowMinutes: past ? -1 : nowDayMinutes(now, settings.dayBoundary), // -1: no block is current
+    settings, days, dayKey, day, mode: day.mode ?? 'normal', schedule, now, past, planning, redraw,
+    nowMinutes: past || planning ? -1 : nowDayMinutes(now, settings.dayBoundary), // -1: no block is current
     edit: (mutator, options) => store.updateDay(dayKey, mutator, options),
     expandShutdown: () => setExpanded(true),
     collapseShutdown: () => setExpanded(false),
@@ -122,6 +134,7 @@ function buildPastScreen(data, dayKey, now, redraw) {
     ),
     weekStrip(data, dayKey, dayKeyFor(now, data.settings.dayBoundary)),
     modeCard(ctx), // the date comes first: which day is this
+    ownTasksCard(ctx),
     (isCheckinEditing(dayKey) || !day.checkin) && checkinCard(ctx),
     mode !== 'sick' && minimumCard(ctx),
     sleepCard(ctx),
@@ -155,6 +168,7 @@ function buildScreen(data, dayKey, now, redraw) {
     showCheckin && checkinCard(ctx),
     evening && shutdown(),
     modeCard(ctx),
+    ownTasksCard(ctx),
     mode !== 'sick' && minimumCard(ctx),
     sleepCard(ctx),
     mode !== 'sick' && applicationsCard(ctx),
@@ -168,6 +182,22 @@ function buildScreen(data, dayKey, now, redraw) {
   ].filter(Boolean);
 
   return nodes;
+}
+
+function buildPlanScreen(data, dayKey, now, redraw) {
+  const ctx = dayContext(data, dayKey, now, redraw, false, true);
+  return [
+    saveErrorBanner(),
+    h('div', { class: 'past-day' },
+      h('a', { class: 'link-btn back-link', href: '#week' }, '‹ Неделя'),
+      h('p', { class: 'muted hint' }, 'Рутина из настроек добавится сама. Здесь — то, что только на этот день.'),
+    ),
+    weekStrip(data, dayKey, dayKeyFor(now, data.settings.dayBoundary)),
+    planCard(ctx),
+    ownTasksCard(ctx, { planning: true }),
+    drivingCard(ctx),
+    timelineCard(ctx),
+  ].filter(Boolean);
 }
 
 // ---------- banners ----------
@@ -225,6 +255,31 @@ function modeCard(ctx) {
     mode === 'sick' && h('p', { class: 'muted hint' }, ctx.past
       ? 'В этот день отмечается только сон, серии не прерываются.'
       : 'Выздоравливай. Сегодня отмечается только сон, серии не прервутся.'),
+  );
+}
+
+/** A later day: which day, the one main thing and the mode. */
+function planCard({ dayKey, day, mode, edit }) {
+  const planned = mode === 'minimum' ? 'minimum' : 'normal';
+  return h('section', { class: 'card' },
+    h('p', { class: 'day-label' }, formatDayLabel(dayKey)),
+    h('label', { class: 'field' },
+      h('span', {}, 'Главное (одно дело)'),
+      h('input', {
+        class: 'input', type: 'text', value: day.focus ?? '', placeholder: 'например, «отправить 2 отклика»',
+        onchange: (e) => edit((d) => {
+          const value = e.target.value.trim();
+          if (value) d.focus = value;
+          else delete d.focus;
+        }),
+      }),
+    ),
+    h('div', { class: 'segmented segmented--two', role: 'radiogroup', 'aria-label': 'Режим дня' },
+      PLAN_MODES.map(([value, label]) => h('button', {
+        class: 'segmented__item', role: 'radio', 'aria-checked': String(planned === value),
+        onclick: () => edit((d) => { d.mode = value; }),
+      }, label))),
+    planned === 'minimum' && h('p', { class: 'muted hint' }, 'В этот день достаточно минимума.'),
   );
 }
 
@@ -375,7 +430,7 @@ function applicationsCard({ settings, days, dayKey, day, edit, past }) {
 
 // ---------- driving lesson ----------
 
-function drivingCard({ settings, day, schedule, edit, past }) {
+function drivingCard({ settings, day, schedule, edit, past, planning }) {
   const lesson = day.drivingLesson;
 
   if (!lesson) {
@@ -383,8 +438,8 @@ function drivingCard({ settings, day, schedule, edit, past }) {
       h('h2', { class: 'card__title' }, 'Вождение'),
       h('button', {
         class: 'btn btn--block',
-        onclick: () => edit((d) => { d.drivingLesson = defaultLesson(new Date()); }),
-      }, past ? '+ Урок вождения' : '+ Урок вождения сегодня'),
+        onclick: () => edit((d) => { d.drivingLesson = planning ? { ...PLANNED_LESSON } : defaultLesson(new Date()); }),
+      }, past || planning ? '+ Урок вождения' : '+ Урок вождения сегодня'),
     );
   }
 
@@ -406,11 +461,11 @@ function drivingCard({ settings, day, schedule, edit, past }) {
     conflicts.length > 0 && h('p', { class: 'hint hint--warning' },
       `Пересекается: ${conflicts.map((b) => b.title).join(', ')}`),
     schedule.unplaced.length > 0 && h('div', { class: 'unplaced' },
-      h('p', { class: 'hint hint--warning' }, past ? 'Не поместилось:' : 'Не помещается сегодня:'),
+      h('p', { class: 'hint hint--warning' }, past ? 'Не поместилось:' : planning ? 'Не поместится:' : 'Не помещается сегодня:'),
       h('ul', {}, schedule.unplaced.map((u) => h('li', {}, `${u.title} — ${formatDuration(u.minutes)}`))),
       // Their tasks are still the day's tasks: they can be done at another time or skipped.
       // A block that only partly fits already shows its checkbox in the timeline.
-      unplacedTasks(schedule).map((task) => taskRow(task, day, edit)),
+      !planning && unplacedTasks(schedule).map((task) => taskRow(task, day, edit)),
     ),
     h('button', { class: 'btn btn--block btn--ghost', onclick: () => edit((d) => { d.drivingLesson = null; }) }, 'Убрать урок'),
   );
@@ -421,6 +476,9 @@ function unplacedTasks(schedule) {
   return schedule.unplaced.flatMap((u) => u.tasks ?? []).filter((t) => !placed.has(t.id));
 }
 
+/** A lesson added to a later day: the hour of "now" means nothing there. */
+const PLANNED_LESSON = { start: '10:00', end: '11:00' };
+
 function defaultLesson(now) {
   const hour = Math.min(20, Math.max(8, now.getHours() + 1));
   const pad = (n) => String(n).padStart(2, '0');
@@ -430,7 +488,7 @@ function defaultLesson(now) {
 // ---------- timeline ----------
 
 function timelineCard(ctx) {
-  const { dayKey, day, mode, schedule, nowMinutes, past, edit, redraw } = ctx;
+  const { dayKey, day, mode, schedule, nowMinutes, past, planning, edit, redraw } = ctx;
   const current = findCurrentBlock(schedule.blocks, nowMinutes);
   const renderedTasks = new Set(); // a block split by a lesson shows its checkbox only once
   const items = schedule.blocks.map((block) => {
@@ -440,7 +498,8 @@ function timelineCard(ctx) {
   });
 
   // Blocks that are over and need nothing more fold into one line, so what is left is on top.
-  const finished = finishedBlockIds(items, day, nowMinutes, past);
+  // A planned day shows the timeline as it will look: nothing to tick, nothing folded.
+  const finished = planning ? new Set() : finishedBlockIds(items, day, nowMinutes, past);
   const open = finishedShown.has(dayKey);
   const toggle = () => {
     if (open) finishedShown.delete(dayKey);
@@ -451,6 +510,7 @@ function timelineCard(ctx) {
 
   return h('section', { class: 'card' },
     h('h2', { class: 'card__title' }, mode === 'sick' ? 'Режим сна' : 'Распорядок'),
+    planning && h('p', { class: 'muted hint hint--top' }, 'Так будет выглядеть день. Отмечать — в сам день.'),
     finished.size > 0 && h('button', { class: 'folded-blocks', 'aria-expanded': String(open), onclick: toggle },
       h('span', { class: 'folded-blocks__icon', 'aria-hidden': 'true' }, '✓'),
       h('span', {}, `Сделано: ${finished.size} ${plural(finished.size, 'блок', 'блока', 'блоков')}`),
@@ -458,7 +518,8 @@ function timelineCard(ctx) {
     ),
     visible.length > 0 && h('ol', { class: 'timeline' },
       visible.map(({ block, tasks }) => blockItem(
-        block, tasks, block === current, day, edit, block.kind === 'workout' && workoutGoalLine(ctx),
+        block, planning ? [] : tasks, block === current, day, edit,
+        !planning && block.kind === 'workout' && workoutGoalLine(ctx),
         finished.has(block.id),
       )),
     ),
@@ -473,6 +534,7 @@ function blockItem(block, tasks, isCurrent, day, edit, footer, finished) {
 
   const chips = [
     block.group && h('span', { class: 'chip' }, block.group),
+    block.kind === 'own' && h('span', { class: 'chip chip--accent' }, 'своё'),
     block.carriedOver && h('span', { class: 'chip chip--accent' }, 'перенесено со вчера'),
     block.moved && h('span', { class: 'chip chip--accent' }, 'перенесено'),
     block.conflict && h('span', { class: 'chip chip--warning' }, 'конфликт с уроком'),

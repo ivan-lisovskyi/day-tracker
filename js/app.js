@@ -1,5 +1,6 @@
 /**
- * App entry point: hash-based router between the three tabs and an earlier day (#day/<date>).
+ * App entry point: hash-based router between the three tabs and another day (#day/<date>):
+ * an earlier one to fix its marks, a later one to plan it.
  * Each screen exports { title, render(root, dayKey) }; render may return a cleanup
  * function (unsubscribe, clear timers) that runs when another screen opens.
  */
@@ -14,7 +15,9 @@ import * as store from './state/store.js';
 
 /** An earlier day reuses the "Сегодня" screen and keeps the "Неделя" tab lit: it is opened from there. */
 const pastDay = { title: 'Прошлый день', tab: 'week', render: today.renderPastDay };
-const routes = { today, week, settings, day: pastDay };
+/** A later day, to plan it: opened from "Неделя", the week strip or "Закрыть день". */
+const planDay = { title: 'План на день', tab: 'week', render: today.renderPlanDay };
+const routes = { today, week, settings, day: pastDay, plan: planDay };
 
 const screenEl = document.getElementById('screen');
 const titleEl = document.getElementById('screen-title');
@@ -28,7 +31,7 @@ function render() {
   const { name, dayKey } = currentRoute();
   const screen = routes[name];
   const tab = screen.tab ?? name;
-  if (name !== 'day' && name !== 'week') week.forgetReturnWeek();
+  if (!['day', 'plan', 'week'].includes(name)) week.forgetReturnWeek();
 
   titleEl.textContent = screen.title;
   document.title = `${screen.title} · Мой день`;

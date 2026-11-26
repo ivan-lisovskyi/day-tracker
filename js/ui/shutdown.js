@@ -38,10 +38,13 @@ export function shutdownCard({ days, dayKey, day, settings, schedule, edit, expa
         h('span', { class: 'badge badge--success' }, `✓ ${stampTime(day.closedAt)}`),
       ),
       tomorrow.focus && h('p', {}, h('span', { class: 'muted' }, 'Главное на завтра: '), tomorrow.focus),
-      h('button', {
-        class: 'link-btn',
-        onclick: () => { expandShutdown(); edit((d) => { delete d.closedAt; }); }, // reopen straight into the form
-      }, 'Открыть снова'),
+      h('div', { class: 'shutdown__links' },
+        h('button', {
+          class: 'link-btn',
+          onclick: () => { expandShutdown(); edit((d) => { delete d.closedAt; }); }, // reopen straight into the form
+        }, 'Открыть снова'),
+        planLink(tomorrowKey),
+      ),
     );
   }
 
@@ -67,7 +70,10 @@ export function shutdownCard({ days, dayKey, day, settings, schedule, edit, expa
       }, day.note ?? ''),
     ),
 
-    h('p', { class: 'field-label' }, 'Завтра'),
+    h('div', { class: 'shutdown__tomorrow' },
+      h('p', { class: 'field-label' }, 'Завтра'),
+      planLink(tomorrowKey),
+    ),
     h('label', { class: 'field' },
       h('span', {}, 'Главное на завтра (одно дело)'),
       h('input', {
@@ -91,6 +97,11 @@ export function shutdownCard({ days, dayKey, day, settings, schedule, edit, expa
       onclick: () => edit((d) => { d.closedAt = toStamp(new Date()); }),
     }, 'Закрыть день'),
   );
+}
+
+/** Opens tomorrow as "План на день": own tasks and the whole timeline live there. */
+function planLink(tomorrowKey) {
+  return h('a', { class: 'link-btn', href: `#day/${tomorrowKey}` }, 'Спланировать завтра ›');
 }
 
 /** Tomorrow's driving lesson, same as today's card: a button adds it, then both times are editable. */

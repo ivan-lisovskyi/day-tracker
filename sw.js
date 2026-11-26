@@ -45,6 +45,7 @@ const ASSETS = [
   './js/ui/errorScreen.js',
   './js/ui/format.js',
   './js/ui/nowCard.js',
+  './js/ui/ownTasks.js',
   './js/ui/rows.js',
   './js/ui/settings.js',
   './js/ui/shutdown.js',
