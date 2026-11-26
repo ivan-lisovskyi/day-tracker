@@ -1,23 +1,26 @@
 /**
- * Seven days across the top of "Сегодня" (and of an earlier day): how each day went at a
- * glance, and one tap to open it. The day on screen is highlighted.
+ * Seven days across the top of "Сегодня" (and of an earlier or a planned day): how each day went
+ * at a glance, which later days have a plan, and one tap to open any of them. The day on screen
+ * is highlighted.
  */
 import { h } from './dom.js';
 import { weekStart } from '../logic/time.js';
 import { buildWeekStats } from '../logic/weekStats.js';
 import { weekStripDays } from '../logic/dayView.js';
+import { hasPlan } from '../logic/ownTasks.js';
 
 const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
-const MARKS = { met: '✓', missed: '✗', sick: '–', today: '•', empty: '·', future: '', before: '' };
+const MARKS = { met: '✓', missed: '✗', sick: '–', today: '•', empty: '·', future: '', planned: '•', before: '' };
 const STATE_TEXT = {
   met: 'минимум засчитан', missed: 'минимум не засчитан', sick: 'болел', today: 'сегодня',
-  empty: 'нет отметок', future: 'впереди', before: 'до начала',
+  empty: 'нет отметок', future: 'впереди', planned: 'запланировано', before: 'до начала',
 };
 
 export function weekStrip(data, shownKey, todayKey) {
   const stats = buildWeekStats(data, weekStart(shownKey), todayKey);
+  const planned = new Set(stats.days.filter((d) => d.isFuture && hasPlan(data.days[d.date])).map((d) => d.date));
   return h('nav', { class: 'week-strip', 'aria-label': 'Дни недели' },
-    weekStripDays(stats.days).map((day) => {
+    weekStripDays(stats.days, planned).map((day) => {
       const shown = day.date === shownKey;
       const label = `${WEEKDAYS[day.weekday - 1]}, ${Number(day.date.slice(8))}: ${STATE_TEXT[day.state]}`;
       const content = [

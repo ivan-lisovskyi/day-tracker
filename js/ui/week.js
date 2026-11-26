@@ -7,6 +7,7 @@ import { plural } from './format.js';
 import * as store from '../state/store.js';
 import { addDays, dayKeyFor, weekStart } from '../logic/time.js';
 import { buildWeekStats } from '../logic/weekStats.js';
+import { hasPlan } from '../logic/ownTasks.js';
 import { forgivenNote, formatDayShort, formatWeekRange, weekToText } from '../logic/exportText.js';
 import {
   applyProposal, buildPlanContext, describeProposal, revertProposal, sanitizeProposals,
@@ -40,16 +41,24 @@ export function render(root) {
     const todayKey = dayKeyFor(new Date(), data.settings.dayBoundary);
     const monday = addDays(weekStart(todayKey), weekOffset * 7);
     const stats = buildWeekStats(data, monday, todayKey);
+    const nav = navCard(stats, weekOffset, (delta) => {
+      weekOffset += delta;
+      exportState = null;
+      if (aiState.status === 'error') aiState = { status: 'idle' }; // that error was about another week
+      redraw();
+    });
+    const days = daysCard(stats, data.days, () => { returnOffset = weekOffset; });
+
+    // A week that has not begun: nothing to sum up yet, only its days to plan.
+    if (stats.week.start > todayKey) {
+      root.replaceChildren(nav, days);
+      return;
+    }
 
     root.replaceChildren(
-      navCard(stats, weekOffset, (delta) => {
-        weekOffset += delta;
-        exportState = null;
-        if (aiState.status === 'error') aiState = { status: 'idle' }; // that error was about another week
-        redraw();
-      }),
+      nav,
       summaryCard(stats),
-      daysCard(stats, () => { returnOffset = weekOffset; }),
+      days,
       habitsCard(stats),
       exportCard(stats, exportState, async () => { exportState = await copyWeek(stats); redraw(); }),
       aiCard(stats, data.settings, redraw),
@@ -76,16 +85,16 @@ export function render(root) {
 
 // ---------- navigation ----------
 
+const WEEK_NAMES = { '-1': 'прошлая неделя', 0: 'эта неделя', 1: 'следующая неделя' };
+
 function navCard(stats, weekOffset, move) {
   return h('section', { class: 'card week-nav' },
     h('button', { class: 'btn week-nav__btn', 'aria-label': 'Предыдущая неделя', onclick: () => move(-1) }, '‹'),
     h('div', { class: 'week-nav__label' },
       h('strong', {}, formatWeekRange(stats.week.start, stats.week.end)),
-      h('span', { class: 'muted' }, weekOffset === 0 ? 'эта неделя' : weekOffset === -1 ? 'прошлая неделя' : ''),
+      h('span', { class: 'muted' }, WEEK_NAMES[weekOffset] ?? ''),
     ),
-    h('button', {
-      class: 'btn week-nav__btn', 'aria-label': 'Следующая неделя', disabled: weekOffset >= 0, onclick: () => move(1),
-    }, '›'),
+    h('button', { class: 'btn week-nav__btn', 'aria-label': 'Следующая неделя', onclick: () => move(1) }, '›'),
   );
 }
 
@@ -304,18 +313,27 @@ async function copyWeek(stats) {
 
 // ---------- days ----------
 
-function daysCard(stats, onOpen) {
+/** `days` are the raw day records: own tasks are counted from them (they are not in the stats). */
+function daysCard(stats, days, onOpen) {
   return h('section', { class: 'card' },
     h('h2', { class: 'card__title' }, 'По дням'),
-    h('ol', { class: 'days' }, stats.days.map((day) => dayRow(day, onOpen))),
-    h('p', { class: 'muted hint' }, 'Нажми на день, чтобы посмотреть или исправить отметки.'),
+    h('ol', { class: 'days' }, stats.days.map((day) => dayRow(day, days[day.date]?.ownTasks?.length ?? 0, onOpen))),
+    h('p', { class: 'muted hint' }, 'Нажми на день: прошлый — исправить отметки, будущий — спланировать.'),
   );
 }
 
-/** A past day opens on its own screen, today opens "Сегодня"; future and pre-tracking days are not links. */
-function dayRow(day, onOpen) {
+/**
+ * Today opens "Сегодня", an earlier day its own screen to fix marks, a later day its plan.
+ * Days before tracking started are not links.
+ */
+function dayRow(day, ownCount, onOpen) {
   const [label, modifier] = dayStatus(day);
-  const facts = day.hasRecord && !day.isFuture
+  const planned = [
+    day.drivingLesson && `вождение ${day.drivingLesson.start}`,
+    ownCount > 0 && `дел: ${ownCount}`,
+    day.mode === 'minimum' && 'режим «минимум»',
+  ].filter(Boolean);
+  const facts = day.isFuture ? planned : day.hasRecord
     ? [
       day.mode !== 'sick' && `↑ ${day.wakeAt ?? '—'}`,
       `↓ ${day.bedAt ?? '—'}`,
@@ -326,7 +344,7 @@ function dayRow(day, onOpen) {
     ].filter(Boolean)
     : [];
 
-  const opens = !day.isFuture && !day.isBeforeStart;
+  const opens = !day.isBeforeStart;
   const content = [
     h('div', { class: 'day-row__head' },
       h('span', { class: 'day-row__date' }, formatDayShort(day.date, day.weekday)),

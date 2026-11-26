@@ -1393,8 +1393,9 @@ a.week-strip__day:active {
 .week-strip__day--today .week-strip__mark,
 .week-strip__day--sick .week-strip__mark,
 .week-strip__day--empty .week-strip__mark { color: var(--text-muted); }
-.week-strip__day--future,
 .week-strip__day--before { opacity: 0.45; }
+.week-strip__day--future { opacity: 0.6; } /* still a link: it opens the plan of that day */
+.week-strip__day--planned .week-strip__mark { color: var(--accent); }
 
 .week-strip__day.is-shown {
   box-shadow: inset 0 0 0 2px var(--accent);
