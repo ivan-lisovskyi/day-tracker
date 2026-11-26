@@ -11,6 +11,7 @@
  *       bedAt:  "2026-11-24T01:20",          // may be after midnight
  *       drivingLesson: { start: "14:00", end: "15:00" } | null,
  *       ownTasks: [{ id: "own-…", title: "Банк", time: "14:00" | null }], // added to this day only
+ *       planOnly: true,                      // made ahead, nothing changed on the day itself yet
  *       done: { [taskId]: true },
  *       minimum: { cbr10: bool, code15: bool },
  *       applications: 1,
@@ -195,6 +196,7 @@ function normalizeDay(day) {
   if ('note' in result && !isString(result.note)) result.note = '';
   for (const key of ['done', 'minimum']) if (key in result && !isPlainObject(result[key])) result[key] = {};
   if ('skipped' in result && !isPlainObject(result.skipped)) delete result.skipped;
+  if ('planOnly' in result && result.planOnly !== true) delete result.planOnly;
   if ('ownTasks' in result) {
     if (Array.isArray(result.ownTasks)) result.ownTasks = cleanOwnTasks(result.ownTasks);
     else delete result.ownTasks;

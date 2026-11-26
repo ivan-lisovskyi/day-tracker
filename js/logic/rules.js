@@ -103,6 +103,17 @@ export function isWorkoutPlanned(dayKey, days, settings, depth = 0) {
   return isWorkoutDay(dayKey, settings) || hasPendingWorkout(dayKey, days, settings, depth);
 }
 
+/**
+ * The plan of a later day ("План на день"): with fixed weekdays it shows that weekday's own
+ * activity. Whether a workout is carried over is decided on the day itself, once the day before
+ * it is over. The weekly goal is a forecast anyway, so it is the same as isWorkoutPlanned.
+ */
+export function plannedWorkout(dayKey, days, settings) {
+  if (isWeeklyWorkoutGoal(settings)) return isWorkoutPlanned(dayKey, days, settings);
+  const choice = days[dayKey]?.workoutChoice;
+  return choice ? choice === 'workout' : isWorkoutDay(dayKey, settings);
+}
+
 // ---------- workout goal "N times a week" ----------
 
 export const isWeeklyWorkoutGoal = (settings) => settings.workoutMode === 'weekly';
@@ -151,7 +162,8 @@ export function weeklyWorkoutProgress(dayKey, days, settings) {
 /**
  * A workout planned yesterday but not done moves to today. It never stacks: there is
  * at most one pending workout, and on a regular workout day it simply merges in.
- * Nothing is carried over from a sick day or from a day with no record (app not opened).
+ * Nothing is carried over from a sick day, from a day with no record (app not opened) or from
+ * a day that was only planned ahead and never used (`planOnly`, see store.updateDay).
  * Fixed-weekday mode only.
  */
 export function hasPendingWorkout(dayKey, days, settings, depth = 0) {
@@ -159,7 +171,7 @@ export function hasPendingWorkout(dayKey, days, settings, depth = 0) {
   if (depth >= MAX_CARRY_DEPTH) return false;
   const prevKey = addDays(dayKey, -1);
   const prev = days[prevKey];
-  if (!prev || prev.mode === 'sick') return false;
+  if (!prev || prev.planOnly || prev.mode === 'sick') return false;
   if (!isWorkoutPlanned(prevKey, days, settings, depth + 1)) return false;
   return !prev.done?.workout && !isSkipped(prev, 'workout'); // a skipped workout is let go, not carried
 

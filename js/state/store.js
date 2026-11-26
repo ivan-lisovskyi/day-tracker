@@ -75,12 +75,19 @@ export function update(mutator, { notify = true } = {}) {
   if (notify) for (const listener of listeners) listener(data);
 }
 
-/** Like update(), but for one day; creates the day record if it does not exist yet. */
+/**
+ * Like update(), but for one day; creates the day record if it does not exist yet.
+ * A record made for a later day is marked `planOnly`: until something is changed on the day
+ * itself it counts as a day the app was not opened (no workout carry-over, "нет данных").
+ */
 export function updateDay(dayKey, mutator, options) {
   update((draft) => {
+    const todayKey = dayKeyFor(new Date(), draft.settings.dayBoundary);
     // The first mark ever starts tracking today (not on an edited earlier day): days before it are not misses.
-    draft.settings.trackingSince ??= dayKeyFor(new Date(), draft.settings.dayBoundary);
-    const day = (draft.days[dayKey] ??= createDay());
+    draft.settings.trackingSince ??= todayKey;
+    const ahead = dayKey > todayKey;
+    const day = (draft.days[dayKey] ??= ahead ? { ...createDay(), planOnly: true } : createDay());
+    if (!ahead) delete day.planOnly;
     day.done ??= {}; // a day from an old or hand-edited backup may lack these
     day.minimum ??= {};
     mutator(day);

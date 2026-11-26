@@ -29,6 +29,7 @@ import {
 import { buildDaySchedule, findCurrentBlock } from '../logic/schedule.js';
 import {
   bedDayKeyFor, bedStampFor, hasPendingWorkout, isBedOnTime, isWorkoutPlanned, minimumStatus, minimumSuggestionReason,
+  plannedWorkout,
   wakeStampFor,
 } from '../logic/rules.js';
 import { minimumStreak } from '../logic/streaks.js';
@@ -106,8 +107,11 @@ function dayContext(data, dayKey, now, redraw, past, planning = false) {
   const day = days[dayKey] ?? createDay();
   const schedule = buildDaySchedule({
     settings, dayKey, day,
-    pendingWorkout: hasPendingWorkout(dayKey, days, settings),
-    workoutPlanned: isWorkoutPlanned(dayKey, days, settings), // knows the weekly goal and the day's choice
+    // A planned day shows its own weekday: a carry-over is decided once the day before is over.
+    pendingWorkout: !planning && hasPendingWorkout(dayKey, days, settings),
+    workoutPlanned: planning
+      ? plannedWorkout(dayKey, days, settings)
+      : isWorkoutPlanned(dayKey, days, settings), // knows the weekly goal and the day's choice
   });
   const setExpanded = (open) => {
     if (open) shutdownExpanded.add(dayKey);

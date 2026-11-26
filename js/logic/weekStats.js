@@ -108,7 +108,7 @@ function buildDay(key, days, settings, habits, todayKey, firstKey) {
     isToday: key === todayKey,
     isFuture,
     isBeforeStart,
-    hasRecord: Boolean(day),
+    hasRecord: Boolean(day) && !day.planOnly, // a day only planned ahead and never used: like no record
     mode: day?.mode ?? null,
     counted: skippedDay ? null : isDayCounted(day, key, settings),
     minimum: day ? minimumStatus(day, key, settings) : null,

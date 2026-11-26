@@ -1646,3 +1646,11 @@ a.week-strip__day:active {
 .field + .segmented { /* "План на день": the mode under the main thing */
   margin-top: 12px;
 }
+
+.own-add__caption {
+  grid-column: 2;
+  margin-top: -2px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-muted);
+}

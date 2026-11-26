@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  bedDayKeyFor, bedStampFor, habitStatus, hasPendingWorkout, isBedOnTime, isDayCounted, isWorkoutPlanned,
+  bedDayKeyFor, bedStampFor, habitStatus, hasPendingWorkout, plannedWorkout, isBedOnTime, isDayCounted, isWorkoutPlanned,
   listHabits, minimumStatus, minimumSuggestionReason, shouldSuggestMinimum, wakeStampFor, weeklyWorkoutProgress,
 } from '../js/logic/rules.js';
 import { createDefaultSettings } from '../js/state/defaults.js';
@@ -243,4 +243,20 @@ test('weekly goal: a stretch that was done stays a stretch day when earlier days
   assert.equal(isWorkoutPlanned(W[1], days, weekly), false);
   // A higher goal makes every remaining day a must-do, but not a day already spent stretching.
   assert.equal(isWorkoutPlanned(W[1], days, { ...weekly, workoutsPerWeek: 7 }), false);
+});
+
+test('a day that was only planned ahead (never used) carries nothing over', () => {
+  const days = { [FRIDAY]: { done: {}, planOnly: true, ownTasks: [{ id: 'own-a', title: 'Почта', time: null }] } };
+  assert.equal(hasPendingWorkout(SATURDAY, days, settings), false);
+  assert.equal(isWorkoutPlanned(SATURDAY, days, settings), false); // Saturday stays a stretching day
+});
+
+test('the plan of a later day shows its own weekday, not a carry-over from a day not over yet', () => {
+  const days = { [FRIDAY]: { done: {} } }; // today, Friday: the workout is not done yet
+  assert.equal(isWorkoutPlanned(SATURDAY, days, settings), true); // as the day itself would see it now
+  assert.equal(plannedWorkout(SATURDAY, days, settings), false); // the plan: Saturday is a stretching day
+  assert.equal(plannedWorkout(MONDAY, days, settings), true); // a regular workout day
+  days[SATURDAY] = { workoutChoice: 'workout' };
+  const weekly = { ...settings, workoutMode: 'weekly' };
+  assert.equal(plannedWorkout(SATURDAY, days, weekly), isWorkoutPlanned(SATURDAY, days, weekly)); // weekly goal: same forecast
 });

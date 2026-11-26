@@ -259,3 +259,11 @@ test('own tasks do not change week stats (they are not sent to the AI)', () => {
   assert.deepEqual(stats, plain);
   assert.doesNotMatch(JSON.stringify(stats), /Банк|Хлеб|own-/);
 });
+
+test('a past day that was only planned ahead shows as "no data", like a day the app was not opened', () => {
+  const data = sampleData();
+  data.days['2026-11-19'] = { mode: 'normal', done: {}, focus: 'Почта', planOnly: true }; // Thu: planned, never used
+  const thursday = buildWeekStats(data, MONDAY, TODAY).days[3];
+  assert.equal(thursday.hasRecord, false);
+  assert.match(weekToText(buildWeekStats(data, MONDAY, TODAY)), /Чт 19\.11 — нет данных/);
+});

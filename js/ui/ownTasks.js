@@ -14,6 +14,12 @@ import {
 
 /** Days whose list is open for editing ("Изменить"), kept across re-renders. */
 const editing = new Set();
+/**
+ * What is typed into the add form, per day. The screen redraws (every 30 s, on coming back to
+ * the app) as soon as focus leaves the fields, and on iPhone it leaves them before "+" is tapped
+ * (closing the time wheel, "Готово" above the keyboard): the draft survives the redraw.
+ */
+const drafts = new Map();
 
 export function ownTasksCard({ dayKey, day, settings, edit, redraw }, { planning = false } = {}) {
   const timed = timedOwnTasks(day, settings.dayBoundary);
@@ -37,7 +43,7 @@ export function ownTasksCard({ dayKey, day, settings, edit, redraw }, { planning
     !editMode && untimed.map((task) => taskRow(task, day, edit)),
     !editMode && timed.length > 0 && h('p', { class: 'muted hint' },
       `В распорядке: ${timed.map((task) => `${task.time} ${task.title}`).join(', ')}`),
-    addForm(edit),
+    addForm(dayKey, edit),
   );
 }
 
@@ -65,12 +71,20 @@ function removeWithUndo(task, edit) {
 }
 
 /** Title, optional time, "+". Enter on the keyboard adds too. */
-function addForm(edit) {
+function addForm(dayKey, edit) {
+  const draft = drafts.get(dayKey) ?? { title: '', time: '' };
+  const remember = () => {
+    if (title.value || time.value) drafts.set(dayKey, { title: title.value, time: time.value });
+    else drafts.delete(dayKey);
+  };
   const title = h('input', {
     type: 'text', class: 'input own-add__title', placeholder: 'Новое дело', maxlength: OWN_TITLE_MAX,
-    'aria-label': 'Новое дело', enterkeyhint: 'done',
+    'aria-label': 'Новое дело', enterkeyhint: 'done', value: draft.title, oninput: remember,
   });
-  const time = h('input', { type: 'time', class: 'input input--time own-add__time', 'aria-label': 'Время, необязательно' });
+  const time = h('input', {
+    type: 'time', class: 'input input--time own-add__time', 'aria-label': 'Время, необязательно', value: draft.time,
+    oninput: remember, onchange: remember,
+  });
 
   return h('form', {
     class: 'own-add',
@@ -80,6 +94,7 @@ function addForm(edit) {
         title.focus();
         return;
       }
+      drafts.delete(dayKey);
       edit((d) => { addOwnTask(d, { title: title.value, time: time.value }, newOwnTaskId()); });
       // The screen does not redraw while a field has focus (see createRenderer): let go of it.
       document.activeElement?.blur();
@@ -87,5 +102,7 @@ function addForm(edit) {
   },
   title,
   time,
-  h('button', { type: 'submit', class: 'btn btn--primary own-add__btn', 'aria-label': 'Добавить дело' }, '+'));
+  h('button', { type: 'submit', class: 'btn btn--primary own-add__btn', 'aria-label': 'Добавить дело' }, '+'),
+  // iPhone shows an empty time field as a blank box: say what it is.
+  h('span', { class: 'own-add__caption', 'aria-hidden': 'true' }, 'время'));
 }

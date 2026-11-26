@@ -158,3 +158,12 @@ test('own tasks: broken entries and duplicate ids are dropped, valid ones kept',
   assert.deepEqual(days['2026-11-27'].ownTasks, [ok, untimed]);
   assert.equal('ownTasks' in days['2026-11-28'], false);
 });
+
+test('planOnly is kept only as true', () => {
+  const data = createInitialData();
+  data.days['2026-11-27'] = { planOnly: true };
+  data.days['2026-11-28'] = { planOnly: 'yes' };
+  const { days } = migrate(data);
+  assert.equal(days['2026-11-27'].planOnly, true);
+  assert.equal('planOnly' in days['2026-11-28'], false);
+});

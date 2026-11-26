@@ -23,3 +23,15 @@ test('planning tomorrow as the very first action starts tracking today', () => {
   assert.deepEqual(data.days[tomorrowKey].ownTasks, [{ id: 'own-x', title: 'Банк', time: null }]);
   assert.ok(memory.get('day-tracker').includes('own-x')); // saved
 });
+
+test('a record made ahead is marked planOnly until the day itself is changed', () => {
+  const todayKey = dayKeyFor(new Date(), store.getData().settings.dayBoundary);
+  const later = addDays(todayKey, 3);
+  store.updateDay(later, (d) => { d.focus = 'Отклики'; });
+  assert.equal(store.getData().days[later].planOnly, true);
+
+  // The same record once that day has come: simulated by moving the record to today.
+  store.update((draft) => { draft.days[todayKey] = { ...draft.days[later] }; });
+  store.updateDay(todayKey, (d) => { d.applications = 1; });
+  assert.equal('planOnly' in store.getData().days[todayKey], false);
+});
