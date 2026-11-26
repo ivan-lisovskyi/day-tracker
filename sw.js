@@ -27,6 +27,7 @@ const ASSETS = [
   './js/logic/backup.js',
   './js/logic/dayView.js',
   './js/logic/exportText.js',
+  './js/logic/ownTasks.js',
   './js/logic/routes.js',
   './js/logic/rules.js',
   './js/logic/schedule.js',
