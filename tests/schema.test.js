@@ -138,3 +138,23 @@ test('tracking start: taken from the earliest day for older data, broken values 
   assert.equal(migrate(data).settings.trackingSince, '2026-11-18');
   assert.equal(migrate(createInitialData()).settings.trackingSince, null); // nothing tracked yet
 });
+
+test('own tasks: broken entries and duplicate ids are dropped, valid ones kept', () => {
+  const data = createInitialData();
+  const ok = { id: 'own-a', title: 'Банк', time: '14:00' };
+  const untimed = { id: 'own-b', title: 'Хлеб', time: null };
+  data.days['2026-11-27'] = {
+    ownTasks: [
+      ok, untimed,
+      { title: 'без id', time: null },
+      { id: 'own-c', title: '   ', time: null },
+      { id: 'own-d', title: 'Плохое время', time: '25:00' },
+      'not a task',
+      { id: 'own-a', title: 'Повтор', time: null },
+    ],
+  };
+  data.days['2026-11-28'] = { ownTasks: 'x' };
+  const { days } = migrate(data);
+  assert.deepEqual(days['2026-11-27'].ownTasks, [ok, untimed]);
+  assert.equal('ownTasks' in days['2026-11-28'], false);
+});

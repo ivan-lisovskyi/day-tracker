@@ -10,6 +10,7 @@
  *       wakeAt: "2026-11-23T09:12",          // local stamp
  *       bedAt:  "2026-11-24T01:20",          // may be after midnight
  *       drivingLesson: { start: "14:00", end: "15:00" } | null,
+ *       ownTasks: [{ id: "own-…", title: "Банк", time: "14:00" | null }], // added to this day only
  *       done: { [taskId]: true },
  *       minimum: { cbr10: bool, code15: bool },
  *       applications: 1,
@@ -117,6 +118,24 @@ function isStamp(value) {
 
 const isRating = (value) => Number.isInteger(value) && value >= 1 && value <= 5;
 
+/** { id: "own-…", title: "1–80 chars", time: "HH:MM" | null } — see logic/ownTasks.js. */
+function isOwnTask(task) {
+  return isPlainObject(task)
+    && isString(task.id) && task.id.length > 0 && task.id.length <= 40
+    && isString(task.title) && task.title.trim().length > 0 && task.title.length <= 80
+    && (task.time === null || isTime(task.time));
+}
+
+/** Valid own tasks, first one wins when an id repeats. */
+function cleanOwnTasks(tasks) {
+  const seen = new Set();
+  return tasks.filter((task) => {
+    if (!isOwnTask(task) || seen.has(task.id)) return false;
+    seen.add(task.id);
+    return true;
+  });
+}
+
 function isCheckin(checkin) {
   return isPlainObject(checkin) && isRating(checkin.sleep) && isRating(checkin.energy);
 }
@@ -176,6 +195,10 @@ function normalizeDay(day) {
   if ('note' in result && !isString(result.note)) result.note = '';
   for (const key of ['done', 'minimum']) if (key in result && !isPlainObject(result[key])) result[key] = {};
   if ('skipped' in result && !isPlainObject(result.skipped)) delete result.skipped;
+  if ('ownTasks' in result) {
+    if (Array.isArray(result.ownTasks)) result.ownTasks = cleanOwnTasks(result.ownTasks);
+    else delete result.ownTasks;
+  }
   if ('workoutChoice' in result && !WORKOUT_CHOICES.includes(result.workoutChoice)) delete result.workoutChoice;
   if ('drivingLesson' in result && result.drivingLesson !== null) {
     const lesson = result.drivingLesson;
