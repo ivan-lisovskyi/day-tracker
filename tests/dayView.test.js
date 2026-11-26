@@ -42,7 +42,18 @@ test('week strip: one mark per day and where a tap goes', () => {
   const strip = weekStripDays(days);
   assert.deepEqual(strip.map((d) => d.state), ['before', 'met', 'missed', 'sick', 'empty', 'today', 'future']);
   assert.deepEqual(strip.map((d) => d.href), [
-    null, '#day/2026-11-24', '#day/2026-11-25', '#day/2026-11-26', '#day/2026-11-27', '#today', null,
+    null, '#day/2026-11-24', '#day/2026-11-25', '#day/2026-11-26', '#day/2026-11-27', '#today', '#day/2026-11-29',
+  ]);
+});
+
+test('future days link to their plan and show "planned" when something is planned', () => {
+  const future = (date, weekday) => ({
+    date, weekday, isFuture: true, isToday: false, isBeforeStart: false, hasRecord: false, mode: null, minimum: null,
+  });
+  const strip = weekStripDays([future('2026-11-27', 5), future('2026-11-28', 6)], new Set(['2026-11-28']));
+  assert.deepEqual(strip.map((d) => [d.state, d.href]), [
+    ['future', '#day/2026-11-27'],
+    ['planned', '#day/2026-11-28'],
   ]);
 });
 

@@ -42,13 +42,16 @@ export function nextOpenTask(block, day) {
 
 /**
  * One mark per day of a week, from buildWeekStats().days:
- * met ✓ · missed ✗ · sick · today (in progress) · empty (no record) · future · before (tracking).
- * `href` is where a tap goes: today → "Сегодня", an earlier tracked day → its own screen.
+ * met ✓ · missed ✗ · sick · today (in progress) · empty (no record) · future · planned (a later
+ * day with something planned, see ownTasks.hasPlan) · before (tracking started later).
+ * `href` is where a tap goes: today → "Сегодня", any other day after tracking began → its own screen
+ * (an earlier day to fix marks, a later one to plan it).
+ * @param {Set<string>} plannedDates later days that have a plan
  */
-export function weekStripDays(statsDays) {
+export function weekStripDays(statsDays, plannedDates = new Set()) {
   return statsDays.map((day) => {
     let state;
-    if (day.isFuture) state = 'future';
+    if (day.isFuture) state = plannedDates.has(day.date) ? 'planned' : 'future';
     else if (day.isBeforeStart) state = 'before';
     else if (day.mode === 'sick') state = 'sick';
     else if (day.minimum?.met) state = 'met';
@@ -58,7 +61,7 @@ export function weekStripDays(statsDays) {
 
     let href = null;
     if (day.isToday) href = '#today';
-    else if (!day.isFuture && !day.isBeforeStart) href = `#day/${day.date}`;
+    else if (!day.isBeforeStart) href = `#day/${day.date}`;
 
     return { date: day.date, weekday: day.weekday, state, href };
   });

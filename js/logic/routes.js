@@ -3,7 +3,8 @@
  *
  *   #today, #week, #settings  → that tab
  *   #day/2026-11-21           → an earlier day, to look back and fix its marks
- * Anything else, and a "day" that is today or in the future, opens "Сегодня".
+ *   #day/2026-11-30           → a later day, to plan it ("plan")
+ * Anything else, and a "day" that is today or not a real date, opens "Сегодня".
  */
 const TABS = ['today', 'week', 'settings'];
 const DAY_KEY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -12,7 +13,8 @@ const DAY_KEY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 export function parseRoute(hash, todayKey) {
   const [name, param] = String(hash ?? '').replace(/^#/, '').split('/');
   if (name === 'day') {
-    return isRealDay(param) && param < todayKey ? { name: 'day', dayKey: param } : { name: 'today' };
+    if (!isRealDay(param) || param === todayKey) return { name: 'today' };
+    return { name: param < todayKey ? 'day' : 'plan', dayKey: param };
   }
   return { name: TABS.includes(name) ? name : 'today' };
 }
