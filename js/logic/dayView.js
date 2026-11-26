@@ -3,6 +3,7 @@
  * task "✓ Готово" ticks, and the marks of the week strip. Pure functions, tested without a DOM.
  */
 import { isSkipped } from './rules.js';
+import { untimedOwnTasks } from './ownTasks.js';
 
 const settled = (day, task) => day?.done?.[task.id] === true || isSkipped(day ?? {}, task.id);
 
@@ -20,6 +21,18 @@ export function finishedBlockIds(items, day, nowMinutes, past) {
     if (ended && tasks.every((task) => settled(day, task))) ids.add(block.id);
   }
   return ids;
+}
+
+/**
+ * "Задач отмечено: 5 из 7, пропущено 1": routine tasks in the schedule (timed own tasks are
+ * there too) plus own tasks without a time. Skipped ones are left out of the total.
+ */
+export function countDayTasks(schedule, day) {
+  const ids = new Set(schedule.blocks.flatMap((block) => block.tasks.map((task) => task.id)));
+  for (const task of untimedOwnTasks(day)) ids.add(task.id);
+  const done = [...ids].filter((id) => day?.done?.[id] === true).length;
+  const skipped = [...ids].filter((id) => isSkipped(day ?? {}, id)).length;
+  return { done, total: ids.size - skipped, skipped };
 }
 
 /** The task "✓ Готово" ticks in this block: the first one not done or skipped, or null. */

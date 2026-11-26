@@ -243,3 +243,19 @@ test('filling in a day from before tracking started does not turn the days aroun
   assert.deepEqual(after.days.map((d) => d.isBeforeStart), [true, true, true, false, false, false, false]);
   assert.deepEqual(after.totals, before.totals);
 });
+
+test('own tasks do not change week stats (they are not sent to the AI)', () => {
+  const withRecords = () => {
+    const data = sampleData();
+    data.days['2026-11-22'] = { mode: 'normal', done: {} }; // Sunday, planned ahead
+    return data;
+  };
+  const plain = buildWeekStats(withRecords(), MONDAY, TODAY);
+  const data = withRecords();
+  data.days['2026-11-16'].ownTasks = [{ id: 'own-a', title: 'Банк', time: '14:00' }];
+  data.days['2026-11-16'].done['own-a'] = true;
+  data.days['2026-11-22'].ownTasks = [{ id: 'own-b', title: 'Хлеб', time: null }];
+  const stats = buildWeekStats(data, MONDAY, TODAY);
+  assert.deepEqual(stats, plain);
+  assert.doesNotMatch(JSON.stringify(stats), /Банк|Хлеб|own-/);
+});

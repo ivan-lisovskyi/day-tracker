@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { finishedBlockIds, nextOpenTask, weekStripDays } from '../js/logic/dayView.js';
+import { countDayTasks, finishedBlockIds, nextOpenTask, weekStripDays } from '../js/logic/dayView.js';
 
 const block = (id, start, end, taskIds = []) => ({ id, start, end, tasks: taskIds.map((t) => ({ id: t, title: t })) });
 const items = (...blocks) => blocks.map((b) => ({ block: b, tasks: b.tasks }));
@@ -44,4 +44,23 @@ test('week strip: one mark per day and where a tap goes', () => {
   assert.deepEqual(strip.map((d) => d.href), [
     null, '#day/2026-11-24', '#day/2026-11-25', '#day/2026-11-26', '#day/2026-11-27', '#today', null,
   ]);
+});
+
+test('countDayTasks counts timed own tasks once and untimed ones too', () => {
+  const schedule = {
+    blocks: [
+      block('cbr', 630, 690, ['cbr']),
+      block('own-bank', 870, 870, ['own-bank']), // a timed own task, already in the schedule
+    ],
+  };
+  const day = {
+    done: { cbr: true, 'own-bread': true },
+    skipped: { 'own-bank': true },
+    ownTasks: [
+      { id: 'own-bank', title: 'Банк', time: '14:30' },
+      { id: 'own-bread', title: 'Хлеб', time: null },
+      { id: 'own-mail', title: 'Почта', time: null },
+    ],
+  };
+  assert.deepEqual(countDayTasks(schedule, day), { done: 2, total: 3, skipped: 1 });
 });

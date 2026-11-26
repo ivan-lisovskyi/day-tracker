@@ -156,3 +156,28 @@ test('the caller can decide whether today is a workout day (weekly goal mode)', 
   const monday = buildDaySchedule({ settings, dayKey: MONDAY, workoutPlanned: false });
   assert.equal(byId(monday.blocks, 'workout').title, 'Растяжка');
 });
+
+test('own timed tasks become marker blocks in time order, also on sick days and around a driving lesson', () => {
+  const ownTasks = [
+    { id: 'own-night', title: 'Ночью', time: '00:30' },
+    { id: 'own-bank', title: 'Банк', time: '14:30' },
+    { id: 'own-bread', title: 'Хлеб', time: null }, // no time: not in the timeline
+  ];
+  const { blocks } = buildDaySchedule({ settings, dayKey: TUESDAY, day: { ownTasks } });
+  const bank = byId(blocks, 'own-bank');
+  assert.deepEqual(
+    { kind: bank.kind, start: bank.start, end: bank.end, tasks: bank.tasks },
+    { kind: 'own', start: 870, end: 870, tasks: [{ id: 'own-bank', title: 'Банк' }] },
+  );
+  assert.equal(byId(blocks, 'own-night').start, 1470); // 00:30 at night, after the evening
+  assert.equal(byId(blocks, 'own-bread'), undefined);
+  assert.deepEqual(blocks.map((b) => b.start), [...blocks.map((b) => b.start)].sort((a, b) => a - b));
+
+  const sick = buildDaySchedule({ settings, dayKey: TUESDAY, day: { mode: 'sick', ownTasks } });
+  assert.deepEqual(sick.blocks.filter((b) => b.kind !== 'sleep').map((b) => b.id), ['own-bank', 'own-night']);
+
+  const lesson = buildDaySchedule({ settings, dayKey: TUESDAY, day: { drivingLesson: { start: '14:00', end: '15:00' }, ownTasks } });
+  const ownDuringLesson = byId(lesson.blocks, 'own-bank');
+  assert.equal(ownDuringLesson.start, 870); // not moved by the lesson
+  assert.equal(ownDuringLesson.conflict, undefined);
+});

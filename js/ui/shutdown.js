@@ -5,7 +5,8 @@
 import { h } from './dom.js';
 import * as store from '../state/store.js';
 import { addDays, stampTime, toDayMinutes, toStamp } from '../logic/time.js';
-import { isSkipped, minimumStatus } from '../logic/rules.js';
+import { minimumStatus } from '../logic/rules.js';
+import { countDayTasks } from '../logic/dayView.js';
 
 const TOMORROW_MODES = [['normal', 'Обычный'], ['minimum', 'Минимум']];
 const DEFAULT_LESSON = { start: '10:00', end: '11:00' };
@@ -117,15 +118,8 @@ function lessonFields(lesson, editTomorrow, boundary) {
   );
 }
 
-function countTasks(schedule, day) {
-  const ids = new Set(schedule.blocks.flatMap((block) => block.tasks.map((task) => task.id)));
-  const done = [...ids].filter((id) => day.done?.[id]).length;
-  const skipped = [...ids].filter((id) => isSkipped(day, id)).length;
-  return { done, total: ids.size - skipped, skipped };
-}
-
 /** "Задач отмечено: 5 из 7, пропущено 1" */
 function tasksLine(schedule, day) {
-  const { done, total, skipped } = countTasks(schedule, day);
+  const { done, total, skipped } = countDayTasks(schedule, day);
   return `Задач отмечено: ${done} из ${total}${skipped ? `, пропущено ${skipped}` : ''}`;
 }

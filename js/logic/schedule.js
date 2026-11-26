@@ -5,6 +5,7 @@
  * Output blocks use day minutes (see time.js), so 01:00 at night is 1500.
  */
 import { isoWeekday, toDayMinutes } from './time.js';
+import { timedOwnTasks } from './ownTasks.js';
 
 /** Kinds still shown in "sick" mode: only the sleep routine counts on those days. */
 const SICK_MODE_KINDS = new Set(['sleep']);
@@ -37,6 +38,8 @@ export function buildDaySchedule({ settings, dayKey, day = {}, pendingWorkout = 
   } else if (day?.drivingLesson) {
     ({ blocks, unplaced } = applyDrivingLesson(blocks, day.drivingLesson, settings));
   }
+  // Own tasks with a time: markers at their time, added last, so neither "болею" nor a lesson touches them.
+  blocks = blocks.concat(timedOwnTasks(day, settings.dayBoundary).map((task) => ownBlock(task, settings.dayBoundary)));
 
   blocks.sort((a, b) => a.start - b.start || a.end - b.end);
   return { blocks, unplaced, workoutToday };
@@ -79,6 +82,22 @@ export function nowAndNext(blocks, minutes) {
 }
 
 // ---------- internals ----------
+
+function ownBlock(task, boundary) {
+  const start = toDayMinutes(task.time, boundary);
+  return {
+    id: task.id,
+    sourceId: null,
+    title: task.title,
+    group: null,
+    kind: 'own',
+    movable: false,
+    start,
+    end: start,
+    tasks: [{ id: task.id, title: task.title }],
+    details: null,
+  };
+}
 
 function expandTemplate(settings, { workoutToday, carriedOver }) {
   const boundary = settings.dayBoundary;
